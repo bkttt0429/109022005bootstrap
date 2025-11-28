@@ -15,6 +15,21 @@
   let currentUser = null;
   let isAddingToCart = false; // 防止重複點擊的標誌
 
+  // 確保已取得 CSRF token（第一次呼叫 add/update 可能比 auth 資訊更早執行）
+  async function ensureCsrf(){
+    if(csrfToken) return;
+    try{
+      const res = await fetch(API_AUTH, { credentials: 'same-origin' });
+      const body = await res.json();
+      if(body && body.success){
+        csrfToken = body.csrf || null;
+        currentUser = body.user || null;
+      }
+    }catch(e){
+      // 忽略，後續 serverModify 會因為缺 token 而拋錯
+    }
+  }
+
   async function serverGetCart(){
     const res = await fetch(API_CART, { method: 'GET', credentials: 'same-origin' });
     if(!res.ok) throw new Error('server error');
@@ -24,6 +39,7 @@
   }
 
   async function serverModify(action, payload){
+    await ensureCsrf();
     payload = payload || {};
     payload.action = action;
     const headers = { 'Content-Type':'application/json' };
@@ -236,39 +252,41 @@
     el.querySelectorAll('.remove-item').forEach(btn=> btn.addEventListener('click', async ()=>{
       if(btn.disabled) return;
       btn.disabled = true;
-      
+
       const id = Number(btn.closest('tr').getAttribute('data-id'));
-      try{ 
-        await serverModify('remove', { product_id: id }); 
-        const cart = getCart(); 
-        delete cart[id]; 
-        saveCart(cart); 
+      try{
+        await serverModify('remove', { product_id: id });
+        const cart = getCart();
+        delete cart[id];
+        saveCart(cart);
       }catch(e){
-        const cart = getCart(); 
-        delete cart[id]; 
-        saveCart(cart); 
+        const cart = getCart();
+        delete cart[id];
+        saveCart(cart);
+        alert('移除商品時伺服器回應錯誤，已暫存於本地');
       }
-      
-      renderCart(); 
+
+      renderCart();
       updateCartCount();
     }));
 
     el.querySelectorAll('.qty-input').forEach(input=> input.addEventListener('change', async ()=>{
       const newQty = Math.max(1, Number(input.value)||1);
       const id = Number(input.closest('tr').getAttribute('data-id'));
-      
-      try{ 
-        await serverModify('update', { product_id: id, quantity: newQty }); 
-        const cart = getCart(); 
-        cart[id] = newQty; 
-        saveCart(cart); 
+      input.disabled = true;
+
+      try{
+        const updated = await serverModify('update', { product_id: id, quantity: newQty });
+        saveCart(updated);
       }catch(e){
-        const cart = getCart(); 
-        cart[id] = newQty; 
-        saveCart(cart); 
+        const cart = getCart();
+        cart[id] = newQty;
+        saveCart(cart);
+        alert('更新數量失敗，已暫存於本地。請檢查庫存或稍後再試');
       }
-      
-      renderCart(); 
+
+      input.disabled = false;
+      renderCart();
       updateCartCount();
     }));
 
