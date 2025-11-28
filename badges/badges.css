@@ -1,0 +1,14 @@
+.badge > a {
+  color: inherit;
+}
+
+/* Playground controls */
+#badge-playground .card { background: #fff; }
+#badge-playground .form-label { font-weight: 600; }
+#badge-preview .badge { min-width: 64px; }
+#badge-samples .badge { cursor: default; }
+
+/* Small responsive tweaks for control panel */
+@media (max-width: 767.98px) {
+  #badge-playground .card { padding: 1rem !important; }
+}

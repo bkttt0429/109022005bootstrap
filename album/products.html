@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>所有照片 - 我的相簿</title>
+    <link href="../assets/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link href="css/shop.css" rel="stylesheet" />
+  </head>
+  <body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+      <div class="container">
+        <a class="navbar-brand" href="index.html">Album</a>
+        <div class="collapse navbar-collapse">
+          <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+            <li class="nav-item"><a class="nav-link active" href="products.html">所有照片</a></li>
+          </ul>
+        </div>
+      </div>
+    </nav>
+
+    <main class="container py-4">
+      <h1>所有照片</h1>
+      <div id="product-grid" class="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-3 mt-3"></div>
+    </main>
+
+    <footer class="text-center py-4 bg-light mt-auto">&copy; 我的相簿</footer>
+
+    <script src="../assets/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="js/shop-data.js"></script>
+    <script src="js/shop.js"></script>
+  </body>
+</html>
