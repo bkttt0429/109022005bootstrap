@@ -3,25 +3,26 @@ header('Content-Type: application/json; charset=utf-8');
 session_start();
 
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/cart_helper.php';
+require_once __DIR__ . '/products.php';
 
 $pdo = getDB();
 $session = session_id();
 
-// helper to output current cart
-function get_cart($pdo, $session){
-    if(isset($_SESSION['user_id'])){
-        $stmt = $pdo->prepare('SELECT product_id, quantity FROM carts WHERE user_id = :u');
-        $stmt->execute(['u'=>$_SESSION['user_id']]);
-    } else {
-        $stmt = $pdo->prepare('SELECT product_id, quantity FROM carts WHERE session_id = :s');
-        $stmt->execute(['s'=>$session]);
+// helper to log movements for inventory/audit
+function log_inventory($pdo, $session, $product_id, $action, $quantity){
+    try{
+        $stmt = $pdo->prepare('INSERT INTO inventory_logs (user_id, session_id, product_id, action, quantity) VALUES (:u,:s,:p,:a,:q)');
+        $stmt->execute([
+            'u' => $_SESSION['user_id'] ?? null,
+            's' => $session,
+            'p' => $product_id,
+            'a' => $action,
+            'q' => $quantity
+        ]);
+    }catch(Exception $e){
+        // best effort logging only
     }
-    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    $cart = [];
-    foreach($rows as $r){ 
-        $cart[(int)$r['product_id']] = (int)$r['quantity']; 
-    }
-    return $cart;
 }
 
 $method = $_SERVER['REQUEST_METHOD'];
@@ -55,16 +56,24 @@ try{
     if($action === 'add'){
         $product_id = (int)($input['product_id'] ?? 0);
         $qty = max(1, (int)($input['quantity'] ?? 1));
-        
-        if(!$product_id){ 
-            throw new Exception('product_id required'); 
+
+        if(!$product_id){
+            throw new Exception('product_id required');
+        }
+
+        $product = find_product($product_id);
+        if(!$product){
+            throw new Exception('product_not_found');
+        }
+        if($qty > $product['stock']){
+            throw new Exception('exceeds_stock');
         }
 
         if(isset($_SESSION['user_id'])){
             // 已登入用戶
             $stmt = $pdo->prepare('
-                INSERT INTO carts (user_id, product_id, quantity) 
-                VALUES (:u, :p, :q) 
+                INSERT INTO carts (user_id, product_id, quantity)
+                VALUES (:u, :p, :q)
                 ON DUPLICATE KEY UPDATE quantity = quantity + :q2
             ');
             $stmt->execute([
@@ -76,8 +85,8 @@ try{
         } else {
             // 訪客用戶（使用 session_id）
             $stmt = $pdo->prepare('
-                INSERT INTO carts (session_id, product_id, quantity) 
-                VALUES (:s, :p, :q) 
+                INSERT INTO carts (session_id, product_id, quantity)
+                VALUES (:s, :p, :q)
                 ON DUPLICATE KEY UPDATE quantity = quantity + :q2
             ');
             $stmt->execute([
@@ -87,12 +96,13 @@ try{
                 'q2' => $qty
             ]);
         }
-        
+
         // 驗證是否成功寫入
         $cart = get_cart($pdo, $session);
-        
+        log_inventory($pdo, $session, $product_id, 'add', $qty);
+
         echo json_encode([
-            'success' => true, 
+            'success' => true,
             'cart' => $cart,
             'message' => 'Product added to cart'
         ]);
@@ -103,9 +113,17 @@ try{
     if($action === 'update'){
         $product_id = (int)($input['product_id'] ?? 0);
         $qty = max(0, (int)($input['quantity'] ?? 0));
-        
-        if(!$product_id){ 
-            throw new Exception('product_id required'); 
+
+        if(!$product_id){
+            throw new Exception('product_id required');
+        }
+
+        $product = find_product($product_id);
+        if(!$product){
+            throw new Exception('product_not_found');
+        }
+        if($qty > $product['stock']){
+            throw new Exception('exceeds_stock');
         }
 
         if(isset($_SESSION['user_id'])){
@@ -114,8 +132,8 @@ try{
                 $stmt->execute(['u'=>$_SESSION['user_id'],'p'=>$product_id]);
             } else {
                 $stmt = $pdo->prepare('
-                    INSERT INTO carts (user_id, product_id, quantity) 
-                    VALUES (:u, :p, :q) 
+                    INSERT INTO carts (user_id, product_id, quantity)
+                    VALUES (:u, :p, :q)
                     ON DUPLICATE KEY UPDATE quantity = :q
                 ');
                 $stmt->execute(['u'=>$_SESSION['user_id'],'p'=>$product_id,'q'=>$qty]);
@@ -126,14 +144,15 @@ try{
                 $stmt->execute(['s'=>$session,'p'=>$product_id]);
             } else {
                 $stmt = $pdo->prepare('
-                    INSERT INTO carts (session_id, product_id, quantity) 
-                    VALUES (:s, :p, :q) 
+                    INSERT INTO carts (session_id, product_id, quantity)
+                    VALUES (:s, :p, :q)
                     ON DUPLICATE KEY UPDATE quantity = :q
                 ');
                 $stmt->execute(['s'=>$session,'p'=>$product_id,'q'=>$qty]);
             }
         }
 
+        log_inventory($pdo, $session, $product_id, 'update', $qty);
         echo json_encode(['success'=>true, 'cart'=>get_cart($pdo,$session)]);
         exit;
     }
@@ -141,11 +160,11 @@ try{
     // 移除商品
     if($action === 'remove'){
         $product_id = (int)($input['product_id'] ?? 0);
-        
-        if(!$product_id){ 
-            throw new Exception('product_id required'); 
+
+        if(!$product_id){
+            throw new Exception('product_id required');
         }
-        
+
         if(isset($_SESSION['user_id'])){
             $stmt = $pdo->prepare('DELETE FROM carts WHERE user_id = :u AND product_id = :p');
             $stmt->execute(['u'=>$_SESSION['user_id'],'p'=>$product_id]);
@@ -153,7 +172,8 @@ try{
             $stmt = $pdo->prepare('DELETE FROM carts WHERE session_id = :s AND product_id = :p');
             $stmt->execute(['s'=>$session,'p'=>$product_id]);
         }
-        
+
+        log_inventory($pdo, $session, $product_id, 'remove', 0);
         echo json_encode(['success'=>true, 'cart'=>get_cart($pdo,$session)]);
         exit;
     }
@@ -167,7 +187,8 @@ try{
             $stmt = $pdo->prepare('DELETE FROM carts WHERE session_id = :s');
             $stmt->execute(['s'=>$session]);
         }
-        
+
+        log_inventory($pdo, $session, 0, 'clear', 0);
         echo json_encode(['success'=>true, 'cart'=>[]]);
         exit;
     }
@@ -182,7 +203,7 @@ try{
         'error'=>'Database error: ' . $e->getMessage()
     ]);
 }catch(Exception $e){
-    http_response_code(500);
+    http_response_code(400);
     echo json_encode([
         'success'=>false,
         'error'=>$e->getMessage()
