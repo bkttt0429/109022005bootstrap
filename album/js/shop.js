@@ -13,6 +13,8 @@
   const API_AUTH = 'api/auth.php';
   let csrfToken = null;
   let currentUser = null;
+  let isAddingToCart = false; // 防止重複點擊的標誌
+
   async function serverGetCart(){
     const res = await fetch(API_CART, { method: 'GET', credentials: 'same-origin' });
     if(!res.ok) throw new Error('server error');
@@ -20,6 +22,7 @@
     if(!body.success) throw new Error(body.error || 'unknown');
     return body.cart || {};
   }
+
   async function serverModify(action, payload){
     payload = payload || {};
     payload.action = action;
@@ -41,9 +44,21 @@
   // header cart count update
   function updateCartCount(){
     // immediate local update
-    try{ const cart = getCart(); const count = Object.values(cart).reduce((s,v)=>s+v,0); const el = document.getElementById('cart-count'); if(el) el.textContent = count; }catch(e){}
+    try{ 
+      const cart = getCart(); 
+      const count = Object.values(cart).reduce((s,v)=>s+v,0); 
+      const el = document.getElementById('cart-count'); 
+      if(el) el.textContent = count; 
+    }catch(e){}
+    
     // try server authoritative value and resync
-    serverGetCart().then(serverCart=>{ try{ const el = document.getElementById('cart-count'); if(el) el.textContent = Object.values(serverCart).reduce((s,v)=>s+v,0); saveCart(serverCart); }catch(e){} }).catch(()=>{});
+    serverGetCart().then(serverCart=>{ 
+      try{ 
+        const el = document.getElementById('cart-count'); 
+        if(el) el.textContent = Object.values(serverCart).reduce((s,v)=>s+v,0); 
+        saveCart(serverCart); 
+      }catch(e){} 
+    }).catch(()=>{});
   }
 
   // render product cards for home / products
@@ -71,21 +86,54 @@
       container.appendChild(col);
     });
 
-    // attach add handlers
+    // attach add handlers with click prevention
     container.querySelectorAll('.add-to-cart').forEach(btn=>{
-      btn.addEventListener('click', (e)=>{
-        const id = btn.getAttribute('data-id');
-        addToCart(Number(id),1);
+      btn.addEventListener('click', async (e)=>{
+        e.preventDefault();
+        e.stopPropagation();
+        
+        if(btn.disabled) return; // 防止重複點擊
+        
+        const id = Number(btn.getAttribute('data-id'));
+        btn.disabled = true;
+        btn.textContent = '處理中...';
+        
+        await addToCart(id, 1);
+        
+        setTimeout(() => {
+          btn.disabled = false;
+          btn.textContent = '加入購物車';
+        }, 500);
       });
     });
   }
 
-  // add cart
-  function addToCart(id, qty){
-    // update local immediately for snappy UI
-    const cart = getCart(); cart[id] = (cart[id]||0)+qty; saveCart(cart); updateCartCount(); alert('已加入購物車');
-    // attempt to persist server-side, but don't block UI
-    serverModify('add', { product_id: id, quantity: qty }).then(serverCart=>{ try{ saveCart(serverCart); updateCartCount(); }catch(e){} }).catch(()=>{});
+  // add cart - 修正版：只使用伺服器端操作
+  async function addToCart(id, qty){
+    if(isAddingToCart) return; // 防止並發請求
+    isAddingToCart = true;
+    
+    try {
+      // 優先使用伺服器端 API
+      const serverCart = await serverModify('add', { product_id: id, quantity: qty });
+      
+      // 成功後更新本地儲存
+      saveCart(serverCart);
+      updateCartCount();
+      alert('已加入購物車');
+      
+    } catch(error) {
+      console.error('加入購物車失敗:', error);
+      
+      // 如果伺服器失敗，才使用本地儲存作為後備
+      const cart = getCart(); 
+      cart[id] = (cart[id]||0) + qty; 
+      saveCart(cart); 
+      updateCartCount(); 
+      alert('已加入購物車（離線模式）');
+    } finally {
+      isAddingToCart = false;
+    }
   }
 
   // render home samples (3 items)
@@ -130,33 +178,54 @@
       </div>
     `;
 
-    document.getElementById('pd-add').addEventListener('click', ()=>{
+    const addBtn = document.getElementById('pd-add');
+    addBtn.addEventListener('click', async ()=>{
+      if(addBtn.disabled) return;
+      
+      addBtn.disabled = true;
+      addBtn.textContent = '處理中...';
+      
       const qty = Number(document.getElementById('pd-qty').value)||1;
-      addToCart(p.id, qty);
+      await addToCart(p.id, qty);
+      
+      setTimeout(() => {
+        addBtn.disabled = false;
+        addBtn.textContent = '加入購物車';
+      }, 500);
     });
   }
 
   // cart page
-  function renderCart(){
+  async function renderCart(){
     const el = document.getElementById('cart-container');
     if(!el) return;
+    
     let cart = {};
     try{
-      const serverCart = await (async()=>{ try{ return await serverGetCart(); }catch(e){ return null; } })();
-      cart = serverCart || getCart();
-    }catch(e){ cart = getCart(); }
+      // 優先從伺服器獲取購物車
+      cart = await serverGetCart();
+      saveCart(cart); // 同步到本地
+    }catch(e){ 
+      // 伺服器失敗時使用本地儲存
+      cart = getCart(); 
+    }
+    
     const ids = Object.keys(cart).map(Number);
-    if(ids.length===0){ el.innerHTML = '<div class="alert alert-info">購物車空空如也</div>'; return; }
+    if(ids.length===0){ 
+      el.innerHTML = '<div class="alert alert-info">購物車空空如也</div>'; 
+      return; 
+    }
 
     let html = '<table class="table"><thead><tr><th>商品</th><th>數量</th><th>單價</th><th>小計</th><th></th></tr></thead><tbody>';
     let total = 0;
 
     ids.forEach(id=>{
       const p = PRODUCTS.find(x=>x.id===id);
+      if(!p) return; // 防止找不到商品
       const qty = cart[id];
       const subtotal = (p.price*qty);
       total += subtotal;
-      html += `<tr data-id="${id}"><td>${p.title}</td><td><input class="form-control form-control-sm qty-input" value="${qty}" style="width:80px" /></td><td>$${p.price.toFixed(2)}</td><td>$${subtotal.toFixed(2)}</td><td><button class="btn btn-sm btn-outline-danger remove-item">移除</button></td></tr>`;
+      html += `<tr data-id="${id}"><td>${p.title}</td><td><input class="form-control form-control-sm qty-input" value="${qty}" min="1" type="number" style="width:80px" /></td><td>$${p.price.toFixed(2)}</td><td>$${subtotal.toFixed(2)}</td><td><button class="btn btn-sm btn-outline-danger remove-item">移除</button></td></tr>`;
     });
 
     html += `</tbody></table><div class="d-flex justify-content-between align-items-center"><strong>總計：$${total.toFixed(2)}</strong><div><button id="checkout-start" class="btn btn-success">結帳</button></div></div>`;
@@ -165,24 +234,51 @@
 
     // attach events
     el.querySelectorAll('.remove-item').forEach(btn=> btn.addEventListener('click', async ()=>{
+      if(btn.disabled) return;
+      btn.disabled = true;
+      
       const id = Number(btn.closest('tr').getAttribute('data-id'));
-      try{ await serverModify('remove', { product_id: id }); }catch(e){}
-      const cart = getCart(); delete cart[id]; saveCart(cart); renderCart(); updateCartCount();
+      try{ 
+        await serverModify('remove', { product_id: id }); 
+        const cart = getCart(); 
+        delete cart[id]; 
+        saveCart(cart); 
+      }catch(e){
+        const cart = getCart(); 
+        delete cart[id]; 
+        saveCart(cart); 
+      }
+      
+      renderCart(); 
+      updateCartCount();
     }));
 
     el.querySelectorAll('.qty-input').forEach(input=> input.addEventListener('change', async ()=>{
-      const newQty = Number(input.value)||1;
+      const newQty = Math.max(1, Number(input.value)||1);
       const id = Number(input.closest('tr').getAttribute('data-id'));
-      try{ await serverModify('update', { product_id: id, quantity: newQty }); }catch(e){}
-      const cart = getCart(); cart[id] = newQty; saveCart(cart); renderCart(); updateCartCount();
+      
+      try{ 
+        await serverModify('update', { product_id: id, quantity: newQty }); 
+        const cart = getCart(); 
+        cart[id] = newQty; 
+        saveCart(cart); 
+      }catch(e){
+        const cart = getCart(); 
+        cart[id] = newQty; 
+        saveCart(cart); 
+      }
+      
+      renderCart(); 
+      updateCartCount();
     }));
 
     const checkoutBtn = document.getElementById('checkout-start');
-    if(checkoutBtn){ checkoutBtn.addEventListener('click', ()=>{
-      document.getElementById('checkout-form').classList.remove('d-none');
-      checkoutBtn.disabled = true;
-    }); }
-
+    if(checkoutBtn){ 
+      checkoutBtn.addEventListener('click', ()=>{
+        document.getElementById('checkout-form').classList.remove('d-none');
+        checkoutBtn.disabled = true;
+      }); 
+    }
   }
 
   // checkout handlers
@@ -214,17 +310,46 @@
       if(!authEl) return;
       if(currentUser){
         authEl.innerHTML = `<span class="me-2">${currentUser.name || currentUser.email}</span><button id="logout-btn" class="btn btn-sm btn-outline-light">登出</button>`;
-        document.getElementById('logout-btn').addEventListener('click', async ()=>{
-          await fetch(API_AUTH, {method:'POST', credentials:'same-origin', headers: {'Content-Type':'application/json','X-CSRF-Token':csrfToken}, body: JSON.stringify({action:'logout'})});
-          currentUser=null; location.reload();
-        });
+        const logoutBtn = document.getElementById('logout-btn');
+        if(logoutBtn){
+          logoutBtn.addEventListener('click', async ()=>{
+            try{
+              await fetch(API_AUTH, {
+                method:'POST', 
+                credentials:'same-origin', 
+                headers: {
+                  'Content-Type':'application/json',
+                  'X-CSRF-Token':csrfToken
+                }, 
+                body: JSON.stringify({action:'logout'})
+              });
+            }catch(e){}
+            currentUser=null; 
+            location.reload();
+          });
+        }
       } else {
         authEl.innerHTML = `<a class="btn btn-outline-light" href="signin.html">登入</a>`;
       }
     }
 
     // fetch auth info & csrf token then update UI
-    fetch(API_AUTH, { credentials: 'same-origin' }).then(r=>r.json()).then(b=>{ if(b && b.success){ csrfToken = b.csrf || null; currentUser = b.user || null; } }).then(()=>{ updateCartCount(); updateAuthUI(); }).catch(()=>{ updateCartCount(); updateAuthUI(); });
+    fetch(API_AUTH, { credentials: 'same-origin' })
+      .then(r=>r.json())
+      .then(b=>{ 
+        if(b && b.success){ 
+          csrfToken = b.csrf || null; 
+          currentUser = b.user || null; 
+        } 
+      })
+      .then(()=>{ 
+        updateCartCount(); 
+        updateAuthUI(); 
+      })
+      .catch(()=>{ 
+        updateCartCount(); 
+        updateAuthUI(); 
+      });
 
     // home
     if(document.getElementById('home-samples')){
@@ -247,19 +372,29 @@
       initCheckout();
     }
 
-    // globally handle add-to-cart links
-    document.body.addEventListener('click', (e)=>{
-      if(e.target.matches('.add-to-cart')){
+    // globally handle add-to-cart links (防止事件冒泡造成重複觸發)
+    document.body.addEventListener('click', async (e)=>{
+      if(e.target.matches('.add-to-cart') && !e.target.closest('.btn-group')){
         e.preventDefault();
-        const id = Number(e.target.getAttribute('data-id')); addToCart(id,1);
+        e.stopPropagation();
+        
+        if(e.target.disabled) return;
+        
+        e.target.disabled = true;
+        const originalText = e.target.textContent;
+        e.target.textContent = '處理中...';
+        
+        const id = Number(e.target.getAttribute('data-id')); 
+        await addToCart(id, 1);
+        
+        setTimeout(() => {
+          e.target.disabled = false;
+          e.target.textContent = originalText;
+        }, 500);
       }
     });
 
-    // product made clickable from cards
     updateCartCount();
-
-    // auth UI handled by updateAuthUI after auth fetch completes
-
   });
 
 })();
