@@ -9,6 +9,8 @@ This folder contains the Album front-end pages plus PHP APIs for cart and auth. 
    mysql -u root < api/schema.sql
    ```
    The script creates the `shop_db` database, `users`, `carts`, and `inventory_logs` tables, and seeds a demo user (`demo@example.com` / `password`). If you forget this step, the PHP endpoints will lazily create the same tables (and seed user) the first time they connect so you won't see "table doesn't exist" 500 errors.
+   The script creates the `shop_db` database, `users`, `carts`, and `inventory_logs` tables, and seeds a demo user (`demo@example.com` / `password`).
+   The script creates the `shop_db` database, `users` and `carts` tables, and seeds a demo user (`demo@example.com` / `password`).
 3. Adjust database credentials in `api/db.php` if your XAMPP MySQL username/password differ from the defaults.
 4. Visit `http://localhost/album/index.html` (or your vhost) and add items to the cart. Requests to `api/cart.php` persist the cart to MySQL using either the logged-in user ID or the current PHP session ID.
 
