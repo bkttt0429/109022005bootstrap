@@ -18,7 +18,9 @@ function get_cart($pdo, $session){
     }
     $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
     $cart = [];
-    foreach($rows as $r){ $cart[(int)$r['product_id']] = (int)$r['quantity']; }
+    foreach($rows as $r){ 
+        $cart[(int)$r['product_id']] = (int)$r['quantity']; 
+    }
     return $cart;
 }
 
@@ -38,6 +40,7 @@ if(!$action){
     exit;
 }
 
+// CSRF 驗證
 if(in_array($action, ['add','update','remove','clear'])){
     $token = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? ($input['csrf'] ?? null);
     if(!$token || !isset($_SESSION['csrf_token']) || !hash_equals($_SESSION['csrf_token'],$token)){
@@ -48,33 +51,73 @@ if(in_array($action, ['add','update','remove','clear'])){
 }
 
 try{
+    // 加入購物車
     if($action === 'add'){
         $product_id = (int)($input['product_id'] ?? 0);
         $qty = max(1, (int)($input['quantity'] ?? 1));
-        if(!$product_id){ throw new Exception('product_id required'); }
+        
+        if(!$product_id){ 
+            throw new Exception('product_id required'); 
+        }
 
         if(isset($_SESSION['user_id'])){
-            $stmt = $pdo->prepare('INSERT INTO carts (user_id, product_id, quantity) VALUES (:u,:p,:q) ON DUPLICATE KEY UPDATE quantity = quantity + :q2');
-            $stmt->execute(['u'=>$_SESSION['user_id'],'p'=>$product_id,'q'=>$qty,'q2'=>$qty]);
+            // 已登入用戶
+            $stmt = $pdo->prepare('
+                INSERT INTO carts (user_id, product_id, quantity) 
+                VALUES (:u, :p, :q) 
+                ON DUPLICATE KEY UPDATE quantity = quantity + :q2
+            ');
+            $stmt->execute([
+                'u' => $_SESSION['user_id'],
+                'p' => $product_id,
+                'q' => $qty,
+                'q2' => $qty
+            ]);
         } else {
-            $stmt = $pdo->prepare('INSERT INTO carts (session_id, product_id, quantity) VALUES (:s,:p,:q) ON DUPLICATE KEY UPDATE quantity = quantity + :q2');
-            $stmt->execute(['s'=>$session,'p'=>$product_id,'q'=>$qty,'q2'=>$qty]);
+            // 訪客用戶（使用 session_id）
+            $stmt = $pdo->prepare('
+                INSERT INTO carts (session_id, product_id, quantity) 
+                VALUES (:s, :p, :q) 
+                ON DUPLICATE KEY UPDATE quantity = quantity + :q2
+            ');
+            $stmt->execute([
+                's' => $session,
+                'p' => $product_id,
+                'q' => $qty,
+                'q2' => $qty
+            ]);
         }
-        echo json_encode(['success'=>true, 'cart'=>get_cart($pdo,$session)]);
+        
+        // 驗證是否成功寫入
+        $cart = get_cart($pdo, $session);
+        
+        echo json_encode([
+            'success' => true, 
+            'cart' => $cart,
+            'message' => 'Product added to cart'
+        ]);
         exit;
     }
 
+    // 更新數量
     if($action === 'update'){
         $product_id = (int)($input['product_id'] ?? 0);
         $qty = max(0, (int)($input['quantity'] ?? 0));
-        if(!$product_id){ throw new Exception('product_id required'); }
+        
+        if(!$product_id){ 
+            throw new Exception('product_id required'); 
+        }
 
         if(isset($_SESSION['user_id'])){
             if($qty <= 0){
                 $stmt = $pdo->prepare('DELETE FROM carts WHERE user_id = :u AND product_id = :p');
                 $stmt->execute(['u'=>$_SESSION['user_id'],'p'=>$product_id]);
             } else {
-                $stmt = $pdo->prepare('INSERT INTO carts (user_id, product_id, quantity) VALUES (:u,:p,:q) ON DUPLICATE KEY UPDATE quantity = :q');
+                $stmt = $pdo->prepare('
+                    INSERT INTO carts (user_id, product_id, quantity) 
+                    VALUES (:u, :p, :q) 
+                    ON DUPLICATE KEY UPDATE quantity = :q
+                ');
                 $stmt->execute(['u'=>$_SESSION['user_id'],'p'=>$product_id,'q'=>$qty]);
             }
         } else {
@@ -82,7 +125,11 @@ try{
                 $stmt = $pdo->prepare('DELETE FROM carts WHERE session_id = :s AND product_id = :p');
                 $stmt->execute(['s'=>$session,'p'=>$product_id]);
             } else {
-                $stmt = $pdo->prepare('INSERT INTO carts (session_id, product_id, quantity) VALUES (:s,:p,:q) ON DUPLICATE KEY UPDATE quantity = :q');
+                $stmt = $pdo->prepare('
+                    INSERT INTO carts (session_id, product_id, quantity) 
+                    VALUES (:s, :p, :q) 
+                    ON DUPLICATE KEY UPDATE quantity = :q
+                ');
                 $stmt->execute(['s'=>$session,'p'=>$product_id,'q'=>$qty]);
             }
         }
@@ -91,9 +138,14 @@ try{
         exit;
     }
 
+    // 移除商品
     if($action === 'remove'){
         $product_id = (int)($input['product_id'] ?? 0);
-        if(!$product_id){ throw new Exception('product_id required'); }
+        
+        if(!$product_id){ 
+            throw new Exception('product_id required'); 
+        }
+        
         if(isset($_SESSION['user_id'])){
             $stmt = $pdo->prepare('DELETE FROM carts WHERE user_id = :u AND product_id = :p');
             $stmt->execute(['u'=>$_SESSION['user_id'],'p'=>$product_id]);
@@ -101,10 +153,12 @@ try{
             $stmt = $pdo->prepare('DELETE FROM carts WHERE session_id = :s AND product_id = :p');
             $stmt->execute(['s'=>$session,'p'=>$product_id]);
         }
+        
         echo json_encode(['success'=>true, 'cart'=>get_cart($pdo,$session)]);
         exit;
     }
 
+    // 清空購物車
     if($action === 'clear'){
         if(isset($_SESSION['user_id'])){
             $stmt = $pdo->prepare('DELETE FROM carts WHERE user_id = :u');
@@ -113,6 +167,7 @@ try{
             $stmt = $pdo->prepare('DELETE FROM carts WHERE session_id = :s');
             $stmt->execute(['s'=>$session]);
         }
+        
         echo json_encode(['success'=>true, 'cart'=>[]]);
         exit;
     }
@@ -120,7 +175,17 @@ try{
     http_response_code(400);
     echo json_encode(['success'=>false,'error'=>'unknown action']);
 
+}catch(PDOException $e){
+    http_response_code(500);
+    echo json_encode([
+        'success'=>false,
+        'error'=>'Database error: ' . $e->getMessage()
+    ]);
 }catch(Exception $e){
     http_response_code(500);
-    echo json_encode(['success'=>false,'error'=>$e->getMessage()]);
+    echo json_encode([
+        'success'=>false,
+        'error'=>$e->getMessage()
+    ]);
 }
+?>
