@@ -15,6 +15,21 @@
   let currentUser = null;
   let isAddingToCart = false; // 防止重複點擊的標誌
 
+  // 確保已取得 CSRF token（第一次呼叫 add/update 可能比 auth 資訊更早執行）
+  async function ensureCsrf(){
+    if(csrfToken) return;
+    try{
+      const res = await fetch(API_AUTH, { credentials: 'same-origin' });
+      const body = await res.json();
+      if(body && body.success){
+        csrfToken = body.csrf || null;
+        currentUser = body.user || null;
+      }
+    }catch(e){
+      // 忽略，後續 serverModify 會因為缺 token 而拋錯
+    }
+  }
+
   async function serverGetCart(){
     const res = await fetch(API_CART, { method: 'GET', credentials: 'same-origin' });
     if(!res.ok) throw new Error('server error');
@@ -24,6 +39,7 @@
   }
 
   async function serverModify(action, payload){
+    await ensureCsrf();
     payload = payload || {};
     payload.action = action;
     const headers = { 'Content-Type':'application/json' };
