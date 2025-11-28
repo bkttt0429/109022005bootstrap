@@ -36,9 +36,21 @@ try{
         if(!filter_var($email, FILTER_VALIDATE_EMAIL)) respond(['success'=>false,'error'=>'invalid_email'],400);
         if(strlen($pass) < 6) respond(['success'=>false,'error'=>'password_too_short'],400);
 
+        // Avoid duplicate inserts so MySQL errors don't bubble up to the UI
+        $existing = $pdo->prepare('SELECT id, email, name FROM users WHERE email = :e LIMIT 1');
+        $existing->execute(['e'=>$email]);
+        if($existing->fetch(PDO::FETCH_ASSOC)) respond(['success'=>false,'error'=>'email_exists'],400);
+
         $hash = password_hash($pass, PASSWORD_DEFAULT);
         $stmt = $pdo->prepare('INSERT INTO users (email,name,password_hash) VALUES (:e,:n,:p)');
-        $stmt->execute(['e'=>$email,'n'=>$name,'p'=>$hash]);
+
+        try{
+            $stmt->execute(['e'=>$email,'n'=>$name,'p'=>$hash]);
+        }catch(PDOException $e){
+            if($e->getCode() === '23000') respond(['success'=>false,'error'=>'email_exists'],400);
+            throw $e;
+        }
+
         $uid = (int)$pdo->lastInsertId();
         $_SESSION['user_id'] = $uid;
 
