@@ -29,6 +29,20 @@ CREATE TABLE IF NOT EXISTS carts (
   CONSTRAINT uc_cart_session_product UNIQUE (session_id, product_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Inventory change log (cart adds/updates/removes)
+CREATE TABLE IF NOT EXISTS inventory_logs (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id INT UNSIGNED NULL,
+  session_id VARCHAR(255) NULL,
+  product_id INT UNSIGNED NOT NULL DEFAULT 0,
+  action VARCHAR(32) NOT NULL,
+  quantity INT NOT NULL DEFAULT 0,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_inventory_user (user_id),
+  KEY idx_inventory_session (session_id),
+  KEY idx_inventory_product (product_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- Example user (password: password)
 INSERT INTO users (email, name, password_hash)
 VALUES ('demo@example.com', 'Demo User', '$2y$10$sF0rtCwAd3C3BjiMo0VwJeE9suNr97W7ikhkEjvq9ZBAzF.vS8HXe')
