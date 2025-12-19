@@ -1,2 +1,0 @@
-2025-12-18 11:11:07 - Error: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'shop_db.reviews' doesn't exist
-2025-12-18 11:12:03 - Error: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'shop_db.reviews' doesn't exist
