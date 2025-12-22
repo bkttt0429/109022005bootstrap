@@ -40,3 +40,5 @@ database_schema.sql.bak
 .env.development.local
 .env.test.local
 .env.production.local
+
+.main_app/api/config.php
