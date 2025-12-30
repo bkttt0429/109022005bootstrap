@@ -6,12 +6,13 @@
 這是目前的**核心開發目錄**，整合了網站的主要功能與常用的 Bootstrap 範本。所有的開發工作應盡量在此資料夾中進行。
 
 ### `main_app` 結構說明:
-*   **根目錄檔案**:
-    *   `index.html`: 首頁 (源自 Album)。
-    *   `signin.html`: 登入頁面。
-    *   `products.html`: 產品列表。
-    *   `cart.html`: 購物車。
-    *   `database_schema.sql`: 資料庫結構檔 (請匯入此檔)。
+*   **根目錄結構**:
+    *   `client/`: React 前端專案原始碼 (Vite + React)。
+    *   `api/`: 後端 PHP API 服務核心 (RESTful)。
+    *   `index.html`: 應用程式入口 (SPA Entry Point)。
+    *   `n8n_autoship.json`: n8n 自動化部署檔。
+    *   `database_schema.sql`: 資料庫初始化腳本。
+    *   `manifest.webmanifest`, `sw.js`: PWA 配置檔。
 *   **核心資源**:
     *   `api/`: 後端 PHP/SQL 支援。
     *   `assets/`: 共用 Bootstrap 資源 (CSS/JS)。
@@ -147,6 +148,7 @@ graph TD
         GeminiFile[Gemini File Search API]
         GeminiModel[Gemini 2.5 Flash]
         GoogleOAuth[Google Identity]
+        n8n[n8n Automation Server]
     end
 
     User -->|Access| Router
@@ -173,6 +175,11 @@ graph TD
     ChatAPI -->|"1. Fetch Product Data (Text)"| MySQL
     ChatAPI -->|"2. Upload/Cache"| GeminiFile
     ChatAPI -->|"3. Generate Content (w/ File URI)"| GeminiModel
+
+    %% Automation Flows
+    OrdersAPI -->|"Trigger (Status Change)"| n8n
+    n8n -->|"GET (Update Status)"| OrdersAPI
+    n8n -->|"Cron Poll"| OrdersAPI
 ```
 
 ## 4. 部署說明
@@ -215,6 +222,7 @@ graph TD
     -   建立 `OrderKanban.jsx`，使用 `react-dnd` 與 `react-dnd-html5-backend`。
     -   實作拖放介面，管理訂單狀態流程 (待處理 -> 處理中 -> 已完成)。
     -   串接後端 API 實現狀態即時更新。
+    -   **(v2.7 新增)**: 支援前端自動輪詢 (Polling)，即時反映 n8n 自動化處理的結果。
 
 5.  **互動式 UI (Swiper.js)**
     -   建立 `ProductDetailsModal.jsx`，導入 `swiper/react`。
@@ -307,6 +315,30 @@ graph TD
     - 新增 **AI 優先級** 欄位 (附帶 🪄 魔法棒圖示)，視覺化呈現演算法結果。
     - 實作 **訂單詳情彈窗 (Modal)**，直接展示收件人姓名、電話、地址與詳細商品清單。
     - 加入 **一鍵出貨/完成** 按鈕，與後端狀態機連動，自動鎖定不合法的操作 (如：已完成訂單不可再出貨)。
+    - **UI 動畫通知 (v2.7)**: 整合 `react-hot-toast` 與輪詢機制，當訂單狀態被外部更新時，自動彈出出貨通知卡片。
 - **看板管理 (Kanban)**:
     - 訂單卡片同步顯示 **AI 優先級分數**，協助倉儲人員判斷處理順序。
     - 修復拖曳更新時的狀態同步問題。
+
+### v2.7.0 - 自動化物流與即時監控 (Automation & Real-time Monitoring)
+**日期**: 2025-12-31
+**核心變更**: 引入 n8n 自動化工作流，實現「已付款 -> 已出貨」的無人化處理，並優化前端即時性。
+
+#### 1. n8n 自動化工作流 (Logistics Automation)
+- **雙觸發機制 (Dual Trigger)**:
+    - **Webhook (即時)**: 當訂單狀態變更為 "Paid" 時，PHP 後端立即觸發 Webhook，n8n 接收後直接執行出貨邏輯。
+    - **Cron Job (排程)**: 每 5 分鐘掃描一次 "Paid" 訂單 (防止 Webhook 丟失)，進行批量補漏出貨。
+- **V16 穩定版架構**:
+    - 使用 **Classic Expression (`={{...}}`)** 建構 GET 請求，確保 URL 與參數 (api_key, action, id) 正確編碼與傳遞。
+    - 解決了早期版本 (V13/V14) 因 URL 解析錯誤導致的執行失敗問題。
+
+#### 2. API 安全與邏輯升級
+- **Query Parameter 驗證**:
+    - `admin_gate.php` 支援 `api_key` 透過 URL Query String 傳遞 (解決部分伺服器過濾 Header 問題)。
+- **GET 更新邏輯**:
+    - `orders_api.php` 邏輯重構，允許 **GET 請求** 攜帶 `action=update_status` 參數來觸發狀態更新 (原僅支援 POST)。
+
+#### 3. 前端即時感知 (Real-time UX)
+- **自動輪詢 (Auto-Polling)**:
+    - `AdminOrders.jsx` 實作 `setInterval` (5秒)，自動同步後端最新狀態。
+    - 配合 `useRef` 追蹤狀態變化，當訂單從 "Paid" 轉為 "Shipped" 時，觸發 **Toast UI 動畫** 通知管理員。

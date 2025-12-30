@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Card, Badge, Button, Modal, Table } from 'react-bootstrap';
 import { AgGridReact } from 'ag-grid-react';
 import { AllCommunityModule, ModuleRegistry } from 'ag-grid-community';
@@ -16,6 +16,7 @@ export default function AdminOrders() {
     const [selectedOrder, setSelectedOrder] = useState(null);
     const [showModal, setShowModal] = useState(false);
     const { theme } = useTheme();
+    const prevStatusMap = useRef({});
 
     // Fetch Data with Polling
     useEffect(() => {
@@ -27,7 +28,27 @@ export default function AdminOrders() {
     const fetchOrders = async () => {
         try {
             const res = await axios.get(`${API_BASE_URL}/orders_api.php`);
-            setRowData(Array.isArray(res.data) ? res.data : []);
+            const newOrders = Array.isArray(res.data) ? res.data : [];
+
+            // Check for Status Changes (Notification)
+            newOrders.forEach(order => {
+                const oldStatus = prevStatusMap.current[order.id];
+                if (oldStatus && oldStatus !== order.status && order.status === 'Shipped') {
+                    toast.success(`訂單 #${order.order_number} 已自動出貨！ 🚚`, {
+                        duration: 5000,
+                        position: 'top-right',
+                        style: {
+                            background: '#10B981',
+                            color: '#fff',
+                            fontWeight: 'bold',
+                        },
+                        icon: '🚀',
+                    });
+                }
+                prevStatusMap.current[order.id] = order.status;
+            });
+
+            setRowData(newOrders);
         } catch (error) {
             toast.error('無法載入訂單');
         }
