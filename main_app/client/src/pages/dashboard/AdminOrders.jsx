@@ -81,6 +81,26 @@ export default function AdminOrders() {
         }
     };
 
+    // Grid State Persistence
+    const onGridReady = (params) => {
+        const savedState = localStorage.getItem('adminOrdersGridState');
+        if (savedState) {
+            try {
+                const { colState, filterModel } = JSON.parse(savedState);
+                if (colState) params.api.applyColumnState({ state: colState, applyOrder: true });
+                if (filterModel) params.api.setFilterModel(filterModel);
+            } catch (e) {
+                console.error('Failed to load grid state', e);
+            }
+        }
+    };
+
+    const onGridStateChanged = (params) => {
+        const colState = params.api.getColumnState();
+        const filterModel = params.api.getFilterModel();
+        localStorage.setItem('adminOrdersGridState', JSON.stringify({ colState, filterModel }));
+    };
+
     // Column Definitions
     const colDefs = useMemo(() => [
         { field: "id", headerName: "ID", width: 80 },
@@ -175,6 +195,12 @@ export default function AdminOrders() {
                             pagination={true}
                             paginationPageSize={15}
                             animateRows={true}
+                            onGridReady={onGridReady}
+                            onSortChanged={onGridStateChanged}
+                            onFilterChanged={onGridStateChanged}
+                            onColumnMoved={onGridStateChanged}
+                            onColumnPinned={onGridStateChanged}
+                            onColumnVisible={onGridStateChanged}
                         />
                     </div>
                 </Card.Body>

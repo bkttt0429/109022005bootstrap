@@ -1,12 +1,12 @@
 <?php
 header('Content-Type: application/json');
-require_once 'db.php';
-require_once 'config.php';
+require_once 'api_bootstrap.php';
 
 // ------------------------------------------------------------------
 // CONFIGURATION
 // ------------------------------------------------------------------
-$GEMINI_API_KEY = trim(GEMINI_API_KEY);
+// Load from Environment (populated by api_bootstrap.php from .env)
+$GEMINI_API_KEY = getenv('GEMINI_API_KEY') ?: ($_ENV['GEMINI_API_KEY'] ?? '');
 // File Search REQUIRES Gemini 1.5+
 $MODEL_NAME = 'gemini-2.5-flash'; 
 $CACHE_FILE = 'gemini_file_store.json';
@@ -41,6 +41,24 @@ function getProductDataAsText($pdo) {
         $text .= "Sold: {$p['sold_count']}\n";
         $text .= "Description: {$p['description']}\n";
         $text .= "--------------------------------------------------\n";
+    }
+    return $text;
+}
+
+function getOrderSummary($pdo) {
+    // Fetch last 50 orders to give wider context
+    $stmt = $pdo->query("
+        SELECT id, order_number, status, total_amount, created_at 
+        FROM orders 
+        ORDER BY created_at DESC 
+        LIMIT 50
+    ");
+    $orders = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $text = "\n\nRECENT ORDERS (Logistics Context)\n";
+    $text .= "--------------------------------------------------\n";
+    foreach ($orders as $o) {
+        $text .= "Order ID: {$o['id']} | No: {$o['order_number']} | Status: {$o['status']} | Amount: {$o['total_amount']}\n";
     }
     return $text;
 }
@@ -113,7 +131,7 @@ function getOrUploadFile($pdo, $apiKey, $cacheFile, $duration) {
     }
 
     // Refresh
-    $text = getProductDataAsText($pdo);
+    $text = getProductDataAsText($pdo) . getOrderSummary($pdo);
     $fileInfo = uploadToGemini($text, $apiKey);
     $uri = $fileInfo['uri'];
 
@@ -146,11 +164,15 @@ try {
     $fileUri = getOrUploadFile($pdo, $GEMINI_API_KEY, $CACHE_FILE, $CACHE_DURATION);
 
     // 2. Generate Content using File URI
-    $apiUrl = "https://generativelanguage.googleapis.com/v1beta/models/$MODEL_NAME:generateContent?key=$GEMINI_API_KEY";
+    $apiUrl = "https://generativelanguage.googleapis.com/v1beta/models/$MODEL_NAME:generateContent";
 
     $prompt = "User Question: " . $userMessage . "\n";
-    $prompt .= "Answer based on the Product Catalog file provided. Be helpful and polite.\n";
-    $prompt .= "IMPORTANT: If the user asks for a list, comparison, or quantitative data, AFTER your text response, output a JSON array wrapped in <data> tags. Format: <data>[{\"name\": \"Item\", \"value\": 10}, ...]</data>. The 'value' must be a number.";
+    $prompt = "User Question: " . $userMessage . "\n";
+    $prompt .= "CONTEXT: You are the ERP System Master Assistant. Your knowledge container contains a 'PRODUCT CATALOG' and a 'RECENT ORDERS' list.\n";
+    $prompt .= "ORDER STATUS MANAGEMENT: If a user asks to change a status (e.g., 'Set... to Paid', 'Mark... as Shipped'), look for the ID in the 'RECENT ORDERS'. If the ID is NOT found but the user provided a number, ASSUME it is a valid order ID and output the <action> tag anyway.\n";
+    $prompt .= "GOAL: Execute operations using <action> tags. Always prioritize generating the <action> tag for status updates.\n";
+    $prompt .= "IMPORTANT: If the user asks for a list, comparison, or quantitative data, AFTER your text response, output a JSON array wrapped in <data> tags. Format: <data>[{\"name\": \"Item\", \"value\": 10}, ...]</data>. The 'value' must be a number.\n";
+    $prompt .= "ACTION TRIGGERS: If the user asks to UPDATE an order status, output <action>{\"type\": \"update_status\", \"id\": 123, \"status\": \"Paid\"}</action>. Do NOT support other actions. Output this tag cleanly.";
 
     $apiBody = [
         "contents" => [
@@ -167,7 +189,10 @@ try {
     $ch = curl_init($apiUrl);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_POST, true);
-    curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'Content-Type: application/json',
+        'x-goog-api-key: ' . $GEMINI_API_KEY
+    ]);
     curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($apiBody));
     
     $response = curl_exec($ch);
@@ -187,7 +212,13 @@ try {
 
     echo json_encode([
         'reply' => $aiText, 
-        'debug_context' => ['mode' => 'file_search', 'model' => $MODEL_NAME, 'file_uri' => $fileUri],
+        'debug_context' => [
+            'mode' => 'file_search', 
+            'model' => $MODEL_NAME, 
+            'file_uri' => $fileUri,
+            'key_check' => substr($GEMINI_API_KEY, 0, 8) . '...' . substr($GEMINI_API_KEY, -4),
+            'key_len' => strlen($GEMINI_API_KEY)
+        ],
         'raw_api_response' => $responseData
     ]);
 
