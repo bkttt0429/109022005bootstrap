@@ -1,5 +1,5 @@
 <?php
-require_once 'db.php';
+require_once 'api_bootstrap.php';
 
 header('Content-Type: application/json');
 ini_set('display_errors', 1);
@@ -35,26 +35,29 @@ function getRandomProduct() {
 try {
     $pdo = getDB();
 
-    // 1. Ensure Tables Exist
-    $pdo->exec("CREATE TABLE IF NOT EXISTS users (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        name VARCHAR(50) NOT NULL,
-        email VARCHAR(100) NOT NULL UNIQUE,
-        password_hash VARCHAR(255) NOT NULL,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )");
+    // 1. Ensure Tables Exist (Skip if using PostgreSQL as it's handled by schema_pg.sql)
+    if (DB_TYPE === 'mysql') {
+        $pdo->exec("CREATE TABLE IF NOT EXISTS users (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            name VARCHAR(50) NOT NULL,
+            email VARCHAR(100) NOT NULL UNIQUE,
+            password_hash VARCHAR(255) NOT NULL,
+            role VARCHAR(50) DEFAULT 'user',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )");
 
-    $pdo->exec("CREATE TABLE IF NOT EXISTS products (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        name VARCHAR(255) NOT NULL,
-        description TEXT,
-        price DECIMAL(10, 2) NOT NULL,
-        category VARCHAR(50),
-        image_url VARCHAR(255),
-        stock_quantity INT DEFAULT 100,
-        sku VARCHAR(50),
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )");
+        $pdo->exec("CREATE TABLE IF NOT EXISTS products (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            description TEXT,
+            price DECIMAL(10, 2) NOT NULL,
+            category VARCHAR(50),
+            image_url VARCHAR(255),
+            stock_quantity INT DEFAULT 100,
+            sku VARCHAR(50),
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )");
+    }
 
     // 2. Generate 50 Users (Total)
     $stmt = $pdo->query("SELECT COUNT(*) FROM users");
@@ -97,7 +100,7 @@ try {
             $price = rand(100, 50000);
             $cat = ['Electronics', 'Home', 'Clothing', 'Accessories'][rand(0, 3)];
             $stock = rand(10, 500);
-            $img = "https://via.placeholder.com/300?text=" . urlencode($name);
+            $img = "https://placehold.co/300?text=" . urlencode($name);
             $sku = strtoupper(substr($name, 0, 3)) . '-' . rand(1000, 9999);
 
             $stmt->execute([$name, $desc, $price, $cat, $stock, $img, $sku]);

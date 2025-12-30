@@ -1,23 +1,5 @@
 <?php
-// CORS Configuration - Must be first
-if (isset($_SERVER['HTTP_ORIGIN'])) {
-    header("Access-Control-Allow-Origin: {$_SERVER['HTTP_ORIGIN']}");
-    header("Access-Control-Allow-Credentials: true");
-    header("Access-Control-Max-Age: 86400");
-} else {
-    header("Access-Control-Allow-Origin: *");
-}
-
-header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
-header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With");
-
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(200);
-    exit;
-}
-
-require_once 'db.php';
-require_once 'jwt_utils.php';
+require_once 'api_bootstrap.php';
 
 // Debug logging function
 function logGoogleAuth($msg) {
@@ -27,15 +9,13 @@ function logGoogleAuth($msg) {
 logGoogleAuth("Request received");
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $input = json_decode(file_get_contents('php://input'), true);
+    $input = getJsonInput();
     $token = $input['token'] ?? '';
 
     logGoogleAuth("Token received, length: " . strlen($token));
     
     if (empty($token)) {
-        http_response_code(400);
-        echo json_encode(['error' => 'Token is required']);
-        exit;
+        sendResponse(['error' => 'Token is required'], 400);
     }
 
     // Verify Token with Google
@@ -52,16 +32,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($curlError) {
         logGoogleAuth("CURL Error: " . $curlError);
-        http_response_code(500);
-        echo json_encode(['error' => 'CURL Error: ' . $curlError]);
-        exit;
+        sendResponse(['error' => 'CURL Error: ' . $curlError], 500);
     }
 
     if ($httpCode !== 200) {
         logGoogleAuth("Google Token Verification Failed. HTTP: $httpCode. Response: $response");
-        http_response_code(401);
-        echo json_encode(['error' => 'Invalid Google Token']);
-        exit;
+        sendResponse(['error' => 'Invalid Google Token'], 401);
     }
     
     logGoogleAuth("Google Token Verified. proceeding to DB.");
@@ -116,8 +92,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
              $user['avatar_url'] = $avatar;
         }
 
-        // Start Session (Optional, mostly for legacy, but kept for consistency)
-        session_start();
         $_SESSION['user_id'] = $user['id'];
         
         unset($user['password_hash']); // Don't send hash back
@@ -131,14 +105,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $jwt = JWT::encode($payload);
 
         logGoogleAuth("Login Successful for User ID: " . $user['id']);
-        echo json_encode([
+        sendResponse([
             'success' => true, 
             'user' => $user,
             'token' => $jwt
         ]);
 
     } catch (Exception $e) {
-        http_response_code(500);
-        echo json_encode(['error' => $e->getMessage()]);
+        sendResponse(['error' => $e->getMessage()], 500);
     }
 }

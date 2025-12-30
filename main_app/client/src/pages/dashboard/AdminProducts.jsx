@@ -27,7 +27,8 @@ export default function AdminProducts() {
     const fetchProducts = async () => {
         try {
             const res = await axios.get(`${API_BASE_URL}/products_api.php`);
-            setProducts(res.data);
+            const data = Array.isArray(res.data) ? res.data : [];
+            setProducts(data);
         } catch (error) {
             toast.error('無法載入商品資料');
         }

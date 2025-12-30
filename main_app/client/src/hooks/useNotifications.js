@@ -11,9 +11,12 @@ export default function useNotifications() {
     useEffect(() => {
         if (!user) return;
 
+        // Set initial check to current time to only get NEW updates
+        lastCheckedRef.current = new Date().toISOString();
+
         const pollNotifications = async () => {
             try {
-                const response = await axios.get(`${API_BASE_URL}/notifications_api.php?user_id=${user.id}&last_checked=${lastCheckedRef.current}`);
+                const response = await axios.get(`${API_BASE_URL}/notifications_api.php?user_id=${user.id}&last_checked=${encodeURIComponent(lastCheckedRef.current)}`);
                 const data = response.data;
 
                 if (data.notifications && data.notifications.length > 0) {

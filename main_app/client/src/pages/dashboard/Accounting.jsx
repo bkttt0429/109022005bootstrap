@@ -15,7 +15,14 @@ export default function Accounting() {
         const fetchData = async () => {
             try {
                 const res = await axios.get(`${API_BASE_URL}/accounting_api.php`);
-                setData(res.data);
+                const data = res.data;
+                if (data && typeof data === 'object') {
+                    data.chartData = Array.isArray(data.chartData) ? data.chartData : [];
+                    data.recentTransactions = Array.isArray(data.recentTransactions) ? data.recentTransactions : [];
+                    setData(data);
+                } else {
+                    setData(null);
+                }
             } catch (err) {
                 console.error("Failed to fetch accounting data", err);
             } finally {

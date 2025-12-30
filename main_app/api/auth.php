@@ -1,19 +1,5 @@
 <?php
-session_start();
-require_once 'db.php';
-require_once 'jwt_utils.php';
-
-header("Access-Control-Allow-Origin: *");
-header("Content-Type: application/json; charset=UTF-8");
-header("Access-Control-Allow-Methods: OPTIONS,GET,POST,DELETE");
-header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With");
-
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    exit(0);
-}
-
-$pdo = getDB();
-$method = $_SERVER['REQUEST_METHOD'];
+require_once 'api_bootstrap.php';
 
 // Helper to migrate session cart to user cart
 function migrateCart($pdo, $userId) {
@@ -28,30 +14,31 @@ function migrateCart($pdo, $userId) {
                 $p = (int)$r['product_id'];
                 $q = (int)$r['quantity'];
                 
-                // Insert or Update user cart
-                $up = $pdo->prepare('INSERT INTO carts (user_id, product_id, quantity) VALUES (:u,:p,:q) ON DUPLICATE KEY UPDATE quantity = quantity + :q2');
-                $up->execute(['u' => $userId, 'p' => $p, 'q' => $q, 'q2' => $q]);
+                // PostgreSQL UPSERT syntax
+                if (DB_TYPE === 'pgsql') {
+                    $up = $pdo->prepare('INSERT INTO carts (user_id, product_id, quantity) VALUES (:u,:p,:q) 
+                                       ON CONFLICT (user_id, product_id) DO UPDATE SET quantity = carts.quantity + EXCLUDED.quantity');
+                } else {
+                    $up = $pdo->prepare('INSERT INTO carts (user_id, product_id, quantity) VALUES (:u,:p,:q) 
+                                       ON DUPLICATE KEY UPDATE quantity = quantity + VALUES(quantity)');
+                }
+                $up->execute(['u' => $userId, 'p' => $p, 'q' => $q]);
             }
             // Clear session cart in DB
             $del = $pdo->prepare('DELETE FROM carts WHERE session_id = :s'); 
             $del->execute(['s' => $sid]);
         }
-        
-        // Also merge PHP session cart if using session-based storage coupled with DB
-        if (isset($_SESSION['cart']) && !empty($_SESSION['cart'])) {
-             // Logic could be added here to sync $_SESSION['cart'] to DB for the user
-             // For now, assuming the DB 'carts' table is the source of truth for persistent carts
-        }
     }
 }
 
 try {
+    $pdo = getDB();
+    $method = $_SERVER['REQUEST_METHOD'];
+
     switch ($method) {
         case 'GET':
-            // Check Login Status
-            // Supports both Session and JWT checking logic if needed, but primarily Session for this hybrid app
             if (isset($_SESSION['user_id'])) {
-                echo json_encode([
+                sendResponse([
                     'loggedIn' => true,
                     'user' => [
                         'id' => $_SESSION['user_id'],
@@ -60,35 +47,17 @@ try {
                     ]
                 ]);
             } else {
-                echo json_encode(['loggedIn' => false]);
+                sendResponse(['loggedIn' => false]);
             }
             break;
 
         case 'POST':
-            // Login
-            $input = json_decode(file_get_contents('php://input'), true);
+            $input = getJsonInput();
             $email = $input['email'] ?? '';
             $password = $input['password'] ?? '';
 
             if (!$email || !$password) {
-                http_response_code(400);
-                echo json_encode(['error' => 'Email and Password required']);
-                exit;
-            }
-
-            // Check hardcoded admin (Legacy support)
-            if ($email === 'admin@example.com' && $password === 'admin') {
-                 $_SESSION['user_id'] = 1;
-                 $_SESSION['user_email'] = $email;
-                 $_SESSION['user_role'] = 'admin';
-                 
-                 $jwt = JWT::encode(['user_id'=>1, 'email'=>$email, 'role'=>'admin']);
-                 echo json_encode([
-                     'success' => true, 
-                     'token' => $jwt, 
-                     'user' => ['id'=>1, 'email'=>$email, 'role'=>'admin']
-                 ]);
-                 exit;
+                sendResponse(['error' => 'Email and Password required'], 400);
             }
 
             // Database Check
@@ -105,35 +74,32 @@ try {
                 migrateCart($pdo, $user['id']);
 
                 // Generate Token
-                $jwt = JWT::encode([
+                $payload = [
                     'user_id' => $user['id'],
                     'email' => $user['email'],
                     'role' => $user['role'] ?? 'user'
-                ]);
+                ];
+                $jwt = JWT::encode($payload);
                 
                 unset($user['password_hash']);
-                echo json_encode(['success' => true, 'token' => $jwt, 'user' => $user]);
+                sendResponse(['success' => true, 'token' => $jwt, 'user' => $user]);
             } else {
-                http_response_code(401);
-                echo json_encode(['success' => false, 'error' => 'Invalid credentials']);
+                sendResponse(['success' => false, 'error' => 'Invalid credentials'], 401);
             }
             break;
 
         case 'DELETE':
-            // Logout
             session_unset();
             session_destroy();
-            echo json_encode(['success' => true, 'message' => 'Logged out']);
+            sendResponse(['success' => true, 'message' => 'Logged out']);
             break;
 
         default:
-            http_response_code(405);
-            echo json_encode(['error' => 'Method Not Allowed']);
+            sendResponse(['error' => 'Method Not Allowed'], 405);
             break;
     }
 
 } catch (Exception $e) {
-    http_response_code(500);
-    echo json_encode(['error' => $e->getMessage()]);
+    sendResponse(['error' => $e->getMessage()], 500);
 }
 ?>

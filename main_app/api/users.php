@@ -1,19 +1,5 @@
 <?php
-session_start();
-require_once 'db.php';
-require_once 'jwt_utils.php';
-
-header("Access-Control-Allow-Origin: *");
-header("Content-Type: application/json; charset=UTF-8");
-header("Access-Control-Allow-Methods: OPTIONS,POST");
-header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With");
-
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    exit(0);
-}
-
-$pdo = getDB();
-$method = $_SERVER['REQUEST_METHOD'];
+require_once 'api_bootstrap.php';
 
 // Helper (Duplicate from auth.php - ideally move to a shared helper file)
 function migrateCartOnRegister($pdo, $userId) {
@@ -25,11 +11,17 @@ function migrateCartOnRegister($pdo, $userId) {
 
         if ($items) {
             foreach ($items as $r) {
-                // Determine if we merge or replace. Merging is safer.
                 $p = (int)$r['product_id'];
                 $q = (int)$r['quantity'];
-                $up = $pdo->prepare('INSERT INTO carts (user_id, product_id, quantity) VALUES (:u,:p,:q) ON DUPLICATE KEY UPDATE quantity = quantity + :q2');
-                $up->execute(['u' => $userId, 'p' => $p, 'q' => $q, 'q2' => $q]);
+                
+                if (DB_TYPE === 'pgsql') {
+                    $up = $pdo->prepare('INSERT INTO carts (user_id, product_id, quantity) VALUES (:u,:p,:q) 
+                                       ON CONFLICT (user_id, product_id) DO UPDATE SET quantity = carts.quantity + EXCLUDED.quantity');
+                } else {
+                    $up = $pdo->prepare('INSERT INTO carts (user_id, product_id, quantity) VALUES (:u,:p,:q) 
+                                       ON DUPLICATE KEY UPDATE quantity = quantity + VALUES(quantity)');
+                }
+                $up->execute(['u' => $userId, 'p' => $p, 'q' => $q]);
             }
             $del = $pdo->prepare('DELETE FROM carts WHERE session_id = :s'); 
             $del->execute(['s' => $sid]);
@@ -38,25 +30,24 @@ function migrateCartOnRegister($pdo, $userId) {
 }
 
 try {
+    $pdo = getDB();
+    $method = $_SERVER['REQUEST_METHOD'];
+
     if ($method === 'POST') {
-        $input = json_decode(file_get_contents('php://input'), true);
+        $input = getJsonInput();
         $email = trim($input['email'] ?? '');
         $password = $input['password'] ?? '';
         $name = trim($input['name'] ?? '');
 
         if (!$email || !$password || strlen($password) < 6) {
-            http_response_code(400);
-            echo json_encode(['error' => 'Valid email and password (min 6 chars) required']);
-            exit;
+            sendResponse(['error' => 'Valid email and password (min 6 chars) required'], 400);
         }
 
         // Check exists
         $stmt = $pdo->prepare("SELECT id FROM users WHERE email = ?");
         $stmt->execute([$email]);
         if ($stmt->fetch()) {
-            http_response_code(409); // Conflict
-            echo json_encode(['error' => 'Email already exists']);
-            exit;
+            sendResponse(['error' => 'Email already exists'], 409);
         }
 
         // Create
@@ -78,19 +69,21 @@ try {
                 'role' => 'user'
             ]);
 
-            http_response_code(201);
-            echo json_encode(['success' => true, 'message' => 'User registered', 'token' => $jwt, 'user' => ['id'=>$uid, 'name'=>$name, 'email'=>$email]]);
+            sendResponse([
+                'success' => true, 
+                'message' => 'User registered', 
+                'token' => $jwt, 
+                'user' => ['id'=>$uid, 'name'=>$name, 'email'=>$email]
+            ], 201);
         } else {
             throw new Exception("Registration failed");
         }
 
     } else {
-        http_response_code(405);
-        echo json_encode(['error' => 'Method Not Allowed']);
+        sendResponse(['error' => 'Method Not Allowed'], 405);
     }
 
 } catch (Exception $e) {
-    http_response_code(500);
-    echo json_encode(['error' => $e->getMessage()]);
+    sendResponse(['error' => $e->getMessage()], 500);
 }
 ?>

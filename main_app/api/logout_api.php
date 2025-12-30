@@ -1,5 +1,4 @@
 <?php
-session_start();
+require_once 'api_bootstrap.php';
 session_destroy();
-echo json_encode(['success' => true]);
-?>
+sendResponse(['success' => true]);

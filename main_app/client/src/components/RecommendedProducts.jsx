@@ -20,7 +20,7 @@ export default function RecommendedProducts({ mode = 'auto' }) {
             const userId = user?.id || 0;
             const typeParam = isTopSelling ? 'top' : 'auto';
             const res = await axios.get(`${API_BASE_URL}/recommendations.php?user_id=${userId}&limit=4&type=${typeParam}`);
-            return res.data;
+            return Array.isArray(res.data) ? res.data : [];
         },
         staleTime: 60 * 1000,
     });

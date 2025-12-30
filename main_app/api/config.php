@@ -1,4 +1,3 @@
-<?php
+﻿<?php
 // Google Gemini API Key configuration
-define('GEMINI_API_KEY', 'AIzaSyCApr9KcCIkEb9pMW6Pf-_bnmimCTSXntI');
-?>
+define('GEMINI_API_KEY', $_ENV['GEMINI_API_KEY'] ?? '');

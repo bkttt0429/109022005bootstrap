@@ -22,7 +22,12 @@ export default function Products() {
     useEffect(() => {
         axios.get(`${API_BASE_URL}/products_api.php`)
             .then(res => {
-                setProducts(res.data);
+                if (Array.isArray(res.data)) {
+                    setProducts(res.data);
+                } else {
+                    console.error("API did not return an array", res.data);
+                    setProducts([]);
+                }
                 setLoading(false);
             })
             .catch(err => {
@@ -65,22 +70,6 @@ export default function Products() {
 
     const handleAddToCart = (product) => {
         addToCart(product.id);
-        const Toast = Swal.mixin({
-            toast: true,
-            position: 'top-end',
-            showConfirmButton: false,
-            timer: 1500,
-            timerProgressBar: true,
-            didOpen: (toast) => {
-                toast.addEventListener('mouseenter', Swal.stopTimer)
-                toast.addEventListener('mouseleave', Swal.resumeTimer)
-            }
-        });
-
-        Toast.fire({
-            icon: 'success',
-            title: `${product.name} 已加入購物車`
-        });
     };
 
     return (

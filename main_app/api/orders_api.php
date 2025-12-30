@@ -1,8 +1,6 @@
 <?php
+require_once 'api_bootstrap.php';
 require_once 'admin_gate.php';
-require_once 'db.php';
-header('Content-Type: application/json');
-header("Access-Control-Allow-Origin: *");
 
 function getOrders($pdo) {
     try {
@@ -23,14 +21,14 @@ try {
 
     if ($method === 'GET') {
         $orders = getOrders($pdo);
-        echo json_encode($orders);
+        sendResponse(is_array($orders) ? $orders : []);
     } elseif ($method === 'POST') {
         // Update Status
-        $input = json_decode(file_get_contents('php://input'), true);
+        $input = getJsonInput();
         if (isset($input['action']) && $input['action'] === 'update_status') {
             $stmt = $pdo->prepare("UPDATE orders SET status = ? WHERE id = ?");
             $stmt->execute([$input['status'], $input['id']]);
-            echo json_encode(['success' => true]);
+            sendResponse(['success' => true]);
         }
     }
 

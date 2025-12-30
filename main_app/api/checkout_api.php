@@ -1,48 +1,24 @@
 <?php
-// CORS Configuration
-if (isset($_SERVER['HTTP_ORIGIN'])) {
-    header("Access-Control-Allow-Origin: {$_SERVER['HTTP_ORIGIN']}");
-    header("Access-Control-Allow-Credentials: true");
-    header("Access-Control-Max-Age: 86400");
-} else {
-    header("Access-Control-Allow-Origin: *");
-}
-header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
-header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With");
-
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(200);
-    exit;
-}
-
-session_start();
-require_once 'db.php';
-header('Content-Type: application/json');
+require_once 'api_bootstrap.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    http_response_code(405); // Method Not Allowed
-    echo json_encode(['error' => 'Method not allowed']);
-    exit;
+    sendResponse(['error' => 'Method not allowed'], 405);
 }
 
 // 1. Check Authentication
 if (!isset($_SESSION['user_id'])) {
-    http_response_code(401);
-    echo json_encode(['error' => 'User not logged in']);
-    exit;
+    sendResponse(['error' => 'User not logged in'], 401);
 }
 
 $userId = $_SESSION['user_id'];
 
 // 2. Check Cart
 if (empty($_SESSION['cart'])) {
-    http_response_code(400);
-    echo json_encode(['error' => 'Cart is empty']);
-    exit;
+    sendResponse(['error' => 'Cart is empty'], 400);
 }
 
 // 3. Get Input (Shipping Info)
-$input = json_decode(file_get_contents('php://input'), true);
+$input = getJsonInput();
 $shippingInfo = $input['shipping_info'] ?? [];
 $recipientName = $shippingInfo['name'] ?? 'Unknown';
 $recipientAddress = $shippingInfo['address'] ?? 'Unknown Address';
@@ -127,13 +103,12 @@ try {
 
     $pdo->commit();
 
-    echo json_encode(['success' => true, 'order_id' => $orderId, 'order_number' => $orderNumber]);
+    sendResponse(['success' => true, 'order_id' => $orderId, 'order_number' => $orderNumber]);
 
 } catch (Exception $e) {
     if ($pdo->inTransaction()) {
         $pdo->rollBack();
     }
-    http_response_code(500);
-    echo json_encode(['error' => $e->getMessage()]);
+    sendResponse(['error' => $e->getMessage()], 500);
 }
 

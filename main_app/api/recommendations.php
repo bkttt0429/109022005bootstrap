@@ -1,20 +1,17 @@
 <?php
-require_once 'db.php';
-header('Content-Type: application/json');
-header("Access-Control-Allow-Origin: *");
+require_once 'api_bootstrap.php';
 
 $userId = isset($_GET['user_id']) ? intval($_GET['user_id']) : 0;
 $limit = isset($_GET['limit']) ? intval($_GET['limit']) : 4;
-$type = isset($_GET['type']) ? $_GET['type'] : 'auto'; // 'auto' (default) or 'top'
+$type = isset($_GET['type']) ? $_GET['type'] : 'auto';
 
 try {
     $pdo = getDB();
     $recommendations = [];
 
-    // If type is NOT 'top', try user-based recommendation first
+    $randomFunc = (DB_TYPE === 'pgsql') ? 'RANDOM()' : 'RAND()';
+
     if ($type !== 'top' && $userId > 0) {
-        // 1. User Logic: Find top purchased categories
-        // Get user's most frequently bought category
         $stmt = $pdo->prepare("
             SELECT p.category, COUNT(*) as count 
             FROM order_items oi
@@ -29,18 +26,17 @@ try {
         $topCategory = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if ($topCategory) {
-            // Recommend products from this category, excluding what they bought
             $cat = $topCategory['category'];
             $recStmt = $pdo->prepare("
-                SELECT DISTINCT p.* 
+                SELECT p.* 
                 FROM products p
                 WHERE p.category = ?
-                AND p.id NOT IN (
-                    SELECT product_id FROM order_items oi
+                AND NOT EXISTS (
+                    SELECT 1 FROM order_items oi
                     JOIN orders o ON oi.order_id = o.id
-                    WHERE o.user_id = ?
+                    WHERE o.user_id = ? AND oi.product_id = p.id
                 )
-                ORDER BY RAND()
+                ORDER BY $randomFunc
                 LIMIT ?
             ");
             $recStmt->bindValue(1, $cat, PDO::PARAM_STR);
@@ -51,15 +47,13 @@ try {
         }
     }
 
-    // 2. Fallback or Forced 'top': Popular Products
     if (empty($recommendations) || $type === 'top') {
-        // Get top selling products overall
         $fallbackStmt = $pdo->prepare("
             SELECT p.*, COALESCE(SUM(oi.quantity), 0) as sold
             FROM products p
             LEFT JOIN order_items oi ON p.id = oi.product_id
             GROUP BY p.id
-            ORDER BY sold DESC
+            ORDER BY sold DESC, p.id DESC
             LIMIT ?
         ");
         $fallbackStmt->bindValue(1, $limit, PDO::PARAM_INT);
@@ -67,10 +61,9 @@ try {
         $recommendations = $fallbackStmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    echo json_encode($recommendations);
+    sendResponse(is_array($recommendations) ? $recommendations : []);
 
 } catch (Exception $e) {
-    http_response_code(500);
-    echo json_encode(['error' => $e->getMessage()]);
+    sendResponse(['error' => $e->getMessage()], 500);
 }
 ?>

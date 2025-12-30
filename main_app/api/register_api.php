@@ -1,30 +1,11 @@
 <?php
-// CORS Configuration
-if (isset($_SERVER['HTTP_ORIGIN'])) {
-    header("Access-Control-Allow-Origin: {$_SERVER['HTTP_ORIGIN']}");
-    header("Access-Control-Allow-Credentials: true");
-    header("Access-Control-Max-Age: 86400");
-} else {
-    header("Access-Control-Allow-Origin: *");
-}
-header("Access-Control-Allow-Methods: POST, OPTIONS");
-header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With");
-
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(200);
-    exit;
-}
-
-header('Content-Type: application/json');
-require_once 'db.php';
+require_once 'api_bootstrap.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $input = json_decode(file_get_contents('php://input'), true);
+    $input = getJsonInput();
 
     if (!isset($input['name'], $input['email'], $input['password'])) {
-        http_response_code(400);
-        echo json_encode(['error' => 'Missing required fields']);
-        exit;
+        sendResponse(['error' => 'Missing required fields'], 400);
     }
 
     $name = trim($input['name']);
@@ -38,9 +19,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt = $pdo->prepare("SELECT id FROM users WHERE email = ?");
         $stmt->execute([$email]);
         if ($stmt->fetch()) {
-            http_response_code(409); // Conflict
-            echo json_encode(['error' => 'Email already registered']);
-            exit;
+            sendResponse(['error' => 'Email already registered'], 409);
         }
 
         // Hash password
@@ -50,13 +29,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt = $pdo->prepare("INSERT INTO users (name, email, password_hash, role) VALUES (?, ?, ?, 'user')");
         $stmt->execute([$name, $email, $passwordHash]);
 
-        echo json_encode(['success' => true, 'message' => 'Registration successful']);
+        sendResponse(['success' => true, 'message' => 'Registration successful']);
 
     } catch (Exception $e) {
-        http_response_code(500);
-        echo json_encode(['error' => $e->getMessage()]);
+        sendResponse(['error' => 'Internal Server Error', 'details' => $e->getMessage()], 500);
     }
 } else {
-    http_response_code(405);
-    echo json_encode(['error' => 'Method Not Allowed']);
+    sendResponse(['error' => 'Method Not Allowed'], 405);
 }

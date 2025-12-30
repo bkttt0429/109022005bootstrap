@@ -1,27 +1,10 @@
 <?php
-// CORS Configuration
-if (isset($_SERVER['HTTP_ORIGIN'])) {
-    header("Access-Control-Allow-Origin: {$_SERVER['HTTP_ORIGIN']}");
-    header("Access-Control-Allow-Credentials: true");
-    header("Access-Control-Max-Age: 86400");
-} else {
-    header("Access-Control-Allow-Origin: *");
-}
-header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
-header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With");
-
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(200);
-    exit;
-}
-
-session_start();
-header('Content-Type: application/json');
+require_once 'api_bootstrap.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     // Check Status
     if (isset($_SESSION['user_id'])) {
-        echo json_encode([
+        sendResponse([
             'loggedIn' => true,
             'user' => [
                 'id' => $_SESSION['user_id'],
@@ -30,17 +13,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             ]
         ]);
     } else {
-        echo json_encode(['loggedIn' => false]);
+        sendResponse(['loggedIn' => false]);
     }
 } elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Login
-    $input = json_decode(file_get_contents('php://input'), true);
+    $input = getJsonInput();
     $email = $input['email'] ?? '';
     $password = $input['password'] ?? '';
 
     try {
-        require_once 'db.php';
-        require_once 'jwt_utils.php'; // JWT Import
         $pdo = getDB();
         
         $stmt = $pdo->prepare("SELECT * FROM users WHERE email = ?");
@@ -63,7 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             // Don't send hash back
             unset($user['password_hash']);
             
-            echo json_encode(['success' => true, 'user' => $user, 'token' => $jwt]);
+            sendResponse(['success' => true, 'user' => $user, 'token' => $jwt]);
         } else {
             // Also check for the hardcoded admin (legacy support)
             if ($email === 'admin@example.com' && $password === 'admin') {
@@ -79,14 +60,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 ];
                 $jwt = JWT::encode($payload);
 
-                echo json_encode(['success' => true, 'user' => ['id' => 1, 'email' => $email, 'name' => 'Admin', 'role' => 'admin'], 'token' => $jwt]);
+                sendResponse(['success' => true, 'user' => ['id' => 1, 'email' => $email, 'name' => 'Admin', 'role' => 'admin'], 'token' => $jwt]);
             } else {
-                echo json_encode(['success' => false, 'error' => 'Invalid credentials']);
+                sendResponse(['success' => false, 'error' => 'Invalid credentials'], 401);
             }
         }
     } catch (Exception $e) {
-        http_response_code(500);
-        echo json_encode(['success' => false, 'error' => 'Database error']);
+        sendResponse(['success' => false, 'error' => 'Database error'], 500);
     }
 }
 

@@ -1,7 +1,14 @@
 <?php
 class JWT {
-    private static $secret_key = 'YOUR_SECRET_KEY_CHANGE_THIS_IN_PROD'; // In real app, load from env
+    private static $secret_key = null;
     private static $algorithm = 'HS256';
+
+    private static function getSecret() {
+        if (self::$secret_key === null) {
+            self::$secret_key = $_ENV['JWT_SECRET'] ?? 'default_secret_key_change_me';
+        }
+        return self::$secret_key;
+    }
 
     public static function encode($payload, $validity_input = 3600) {
         $header = json_encode(['typ' => 'JWT', 'alg' => self::$algorithm]);
@@ -14,7 +21,7 @@ class JWT {
         $base64Header = self::base64UrlEncode($header);
         $base64Payload = self::base64UrlEncode(json_encode($payload));
 
-        $signature = hash_hmac('sha256', $base64Header . "." . $base64Payload, self::$secret_key, true);
+        $signature = hash_hmac('sha256', $base64Header . "." . $base64Payload, self::getSecret(), true);
         $base64Signature = self::base64UrlEncode($signature);
 
         return $base64Header . "." . $base64Payload . "." . $base64Signature;
@@ -29,7 +36,7 @@ class JWT {
         list($base64Header, $base64Payload, $base64Signature) = $parts;
 
         $signature = self::base64UrlDecode($base64Signature);
-        $expectedSignature = hash_hmac('sha256', $base64Header . "." . $base64Payload, self::$secret_key, true);
+        $expectedSignature = hash_hmac('sha256', $base64Header . "." . $base64Payload, self::getSecret(), true);
 
         if (!hash_equals($signature, $expectedSignature)) {
             return false;
