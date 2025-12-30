@@ -72,7 +72,7 @@ git clone https://github.com/bkttt0429/web_project.git 109022005bootstrap
 ### 3. 資料庫匯入
 1. 前往 `http://localhost/phpmyadmin/`。
 2. 建立新資料庫 **`shop_db`**。
-3. 匯入專案檔案：`main_app/api/database_schema.sql`。
+3. 匯入專案檔案：`main_app/api/database/schema_pg.sql`。
 
 ### 4. 運行與開發
 - **生產環境**: 存取 `http://localhost/109022005bootstrap/main_app/client/dist/`。
@@ -342,3 +342,41 @@ graph TD
 - **自動輪詢 (Auto-Polling)**:
     - `AdminOrders.jsx` 實作 `setInterval` (5秒)，自動同步後端最新狀態。
     - 配合 `useRef` 追蹤狀態變化，當訂單從 "Paid" 轉為 "Shipped" 時，觸發 **Toast UI 動畫** 通知管理員。
+
+---
+
+### v2.8.0 - RAG AI 介面與體驗強化 (RAG AI UX Enhancement)
+**日期**: 2025-12-31
+**核心變更**: 提升 AI 助手的互動質感與資料連續性。
+
+1. **對話記錄持久化 (State Persistence)**:
+   - 整合 `localStorage` 機制。現在進入「RAG 助理」頁面後，即使切換到其他管理分頁（如訂單或會計）再點回來，**對話內容也會完整保留**。
+2. **Premium UI 動畫與質感**:
+   - 引入 **`Framer Motion`**：實現對話氣泡的平滑彈入動畫。
+   - **打字指示器 (Typing Indicator)**：新增「AI 正在思考中...」的動態圓點動畫，消除等待焦慮。
+3. **視覺對比度優化**:
+   - 重新調校輸入框與氣泡色彩，解決「文字顏色被覆蓋」或「對比不明顯」的問題（確保深灰色文字與純白背景的清晰對比）。
+   - 優化 Markdown 渲染樣式，提升列表與代碼塊的閱讀舒適度。
+4. **明確的執行狀態回報**:
+   - 當用戶下達「將訂單 123 改為 Paid」等指令時，AI 在觸發後台 API 後會自動產生「✅ 操作完成」的明確回饋文字。
+
+### v3.0.0 - 企業級多層級 API 架構重構 (RESTful Architecture Refactoring)
+**日期**: 2025-12-31
+**目標**: 解決傳統 PHP 單點檔案維護難度，提升系統開發規模。
+
+1. **多層級解耦 (Multilayer Architecture)**:
+   - **`Core/` (核心層)**: 實做自定義 `Router` 路由引擎與 `Response` 統一輸出規範。
+   - **`Middleware/` (中間件)**: 建立 `AuthMiddleware` 集中處理 Session 驗證與 Admin 角色檢查。
+   - **`Controllers/` (控制層)**: 負責接收 HTTP 請求，將複雜參數映射至對應服務。
+   - **`Services/` (服務層)**: 核心商業邏輯封裝（如 `OrderService`, `ProductService`, `RAGService`），實現邏輯重用。
+2. **RESTful 標準化**:
+   - 建立 **`api/v1/`** 統一入口點，支援 Clean URL（透過 `.htaccess` 分發）。
+   - 全面採用 REST Method：`GET` (讀取), `POST` (新增), `PUT` (更新), `DELETE` (刪除)。
+3. **統一 Autoloader**:
+   - 實作符合 PSR 精神的自動載入機制，減少大量 `require_once` 造成的效能損耗與路徑錯誤風險。
+4. **當前已遷移模組**:
+   - 自主開發的 `Auth`, `Orders`, `Products`, `RAG Chat` 核心功能已完整遷移至新架構。
+5. **目錄大掃除 (Directory Cleanup)**:
+   - 建立了 `api/tools/`, `api/logs/`, `api/database/` 子目錄。
+   - 將所有調試腳本、日誌檔案與 SQL 定義檔歸類存放，使 `api/` 根目錄僅保留核心入口與配置。
+
