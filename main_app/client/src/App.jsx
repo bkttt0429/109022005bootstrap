@@ -24,6 +24,7 @@ const AdminOrders = lazy(() => import('./pages/dashboard/AdminOrders'));
 const OrderKanban = lazy(() => import('./pages/dashboard/OrderKanban'));
 const AdminChat = lazy(() => import('./pages/dashboard/AdminChat'));
 const Accounting = lazy(() => import('./pages/dashboard/Accounting'));
+const AutomationSettings = lazy(() => import('./pages/dashboard/AutomationSettings'));
 
 const queryClient = new QueryClient();
 
@@ -65,6 +66,7 @@ function App() {
                       <Route path="kanban" element={<OrderKanban />} />
                       <Route path="chat" element={<AdminChat />} />
                       <Route path="accounting" element={<Accounting />} />
+                      <Route path="automation" element={<AutomationSettings />} />
                     </Route>
                   </Route>
                 </Routes>

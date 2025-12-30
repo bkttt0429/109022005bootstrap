@@ -88,6 +88,7 @@ export default function AdminOrders() {
             cellRenderer: p => {
                 const colors = {
                     'Pending': 'warning',
+                    'Paid': 'info',
                     'Processing': 'primary',
                     'Completed': 'success',
                     'Cancelled': 'danger'
@@ -107,6 +108,17 @@ export default function AdminOrders() {
                     {params.data.status === 'Pending' && (
                         <Button size="sm" variant="outline-primary" onClick={() => updateOrderStatus(params.data.id, 'Processing')}>
                             <FaShippingFast /> 出貨
+                        </Button>
+                    )}
+                    {params.data.status === 'Paid' && (
+                        <Button size="sm" variant="outline-primary" onClick={() => updateOrderStatus(params.data.id, 'Processing')}>
+                            <FaShippingFast /> 出貨
+                        </Button>
+                    )}
+                    {params.data.status === 'Shipped' && (
+                        /* Allow completing from Shipped if n8n sets it */
+                        <Button size="sm" variant="outline-success" onClick={() => updateOrderStatus(params.data.id, 'Completed')}>
+                            <FaCheck /> 完成
                         </Button>
                     )}
                     {params.data.status === 'Processing' && (
@@ -195,11 +207,16 @@ export default function AdminOrders() {
                             </Table>
 
                             <div className="d-flex justify-content-center gap-3 mt-4">
-                                <Button variant="primary" size="lg" disabled={selectedOrder.status !== 'Pending'} onClick={() => updateOrderStatus(selectedOrder.id, 'Processing')}>
-                                    <FaShippingFast /> 確認出貨 (Processing)
+                                {/* [NEW] Simulate Payment Button for n8n Testing */}
+                                <Button variant="warning" size="lg" disabled={selectedOrder.status !== 'Pending'} onClick={() => updateOrderStatus(selectedOrder.id, 'Paid')}>
+                                    <i className="bi bi-currency-dollar"></i> 模擬付款 (Set Paid)
                                 </Button>
-                                <Button variant="success" size="lg" disabled={selectedOrder.status !== 'Processing'} onClick={() => updateOrderStatus(selectedOrder.id, 'Completed')}>
-                                    <FaCheck /> 完成訂單 (Completed)
+
+                                <Button variant="primary" size="lg" disabled={!['Pending', 'Paid'].includes(selectedOrder.status)} onClick={() => updateOrderStatus(selectedOrder.id, 'Processing')}>
+                                    <FaShippingFast /> 確認出貨
+                                </Button>
+                                <Button variant="success" size="lg" disabled={!['Processing', 'Shipped'].includes(selectedOrder.status)} onClick={() => updateOrderStatus(selectedOrder.id, 'Completed')}>
+                                    <FaCheck /> 完成訂單
                                 </Button>
                                 <Button variant="danger" size="lg" disabled={['Completed', 'Cancelled'].includes(selectedOrder.status)} onClick={() => updateOrderStatus(selectedOrder.id, 'Cancelled')}>
                                     <FaTimes /> 取消訂單
@@ -209,6 +226,6 @@ export default function AdminOrders() {
                     )}
                 </Modal.Body>
             </Modal>
-        </div>
+        </div >
     );
 }

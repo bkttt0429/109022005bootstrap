@@ -19,6 +19,7 @@ export default function Sidebar() {
         { path: '/dashboard/kanban', label: '訂單看板', icon: <FaChartLine /> },
         { path: '/dashboard/chat', label: 'RAG 助理', icon: <FaRobot /> },
         { path: '/dashboard/accounting', label: '會計系統', icon: <FaMoneyBillWave /> },
+        { path: '/dashboard/automation', label: '自動化 (n8n)', icon: <FaCog /> },
     ];
 
     return (

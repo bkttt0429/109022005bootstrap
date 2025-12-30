@@ -56,6 +56,26 @@ try {
         if (isset($input['action']) && $input['action'] === 'update_status') {
             $stmt = $pdo->prepare("UPDATE orders SET status = ? WHERE id = ?");
             $stmt->execute([$input['status'], $input['id']]);
+
+            // ERP+ Webhook Trigger
+            require_once 'WebhookService.php';
+            $webhook = new WebhookService();
+            $webhook->trigger('ORDER_STATUS_UPDATED', $input['id'], [
+                'status' => $input['status'],
+                'updated_by' => 'admin' // In real app, get from session
+            ]);
+
+            // [NEW] System Notification for User (so they see it pop up)
+            $stmtOrder = $pdo->prepare("SELECT user_id, order_number FROM orders WHERE id = ?");
+            $stmtOrder->execute([$input['id']]);
+            $orderInfo = $stmtOrder->fetch(PDO::FETCH_ASSOC);
+            
+            if ($orderInfo && $orderInfo['user_id']) {
+                $msg = "訂單 #{$orderInfo['order_number']} 狀態已更新為: {$input['status']}";
+                $stmtNotif = $pdo->prepare("INSERT INTO notifications (user_id, type, message, is_read) VALUES (?, 'order_update', ?, FALSE)");
+                $stmtNotif->execute([$orderInfo['user_id'], $msg]);
+            }
+
             sendResponse(['success' => true]);
         }
     }

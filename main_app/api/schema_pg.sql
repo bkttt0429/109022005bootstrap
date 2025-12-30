@@ -119,3 +119,51 @@ CREATE TABLE IF NOT EXISTS reviews (
 INSERT INTO users (email, name, password_hash, role)
 VALUES ('admin@example.com', 'Admin User', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'admin')
 ON CONFLICT (email) DO NOTHING;
+
+-- ERP+ Integration Tables
+-- 7. Webhook Configuration (n8n Integration)
+CREATE TABLE IF NOT EXISTS webhook_configs (
+    id SERIAL PRIMARY KEY,
+    event_topic VARCHAR(50) NOT NULL, -- e.g., 'ORDER_CREATED'
+    n8n_webhook_url TEXT NOT NULL,
+    description TEXT,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 8. Automation Logs
+CREATE TABLE IF NOT EXISTS automation_logs (
+    id SERIAL PRIMARY KEY,
+    event_topic VARCHAR(50) NOT NULL,
+    entity_id VARCHAR(50), -- e.g., Order ID
+    payload JSONB, -- The data sent to n8n
+    response_status INT, -- e.g., 200, 500
+    response_body TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 9. Inventory Movements (SCM)
+CREATE TABLE IF NOT EXISTS inventory_movements (
+    id SERIAL PRIMARY KEY,
+    product_id INT REFERENCES products(id),
+    quantity_change INT NOT NULL,
+    reason VARCHAR(50) NOT NULL, -- 'SALE', 'RESTOCK', 'ADJUSTMENT'
+    reference_id VARCHAR(50), -- Order ID or PO ID
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 10. Customer Events (CRM)
+CREATE TABLE IF NOT EXISTS customer_events (
+    id SERIAL PRIMARY KEY,
+    user_id INT REFERENCES users(id),
+    event_type VARCHAR(50) NOT NULL, -- 'VIEW_PRODUCT', 'ADD_TO_CART'
+    payload JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 11. System Settings (Key-Value Store)
+CREATE TABLE IF NOT EXISTS system_settings (
+    setting_key VARCHAR(50) PRIMARY KEY,
+    setting_value TEXT,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
