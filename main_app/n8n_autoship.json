@@ -1,0 +1,261 @@
+{
+    "name": "ERP+ Auto-Ship (V16 Classic Expression)",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "order-status-changed",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 1,
+            "position": [
+                250,
+                300
+            ],
+            "id": "webhook-trigger",
+            "name": "Webhook: Order Status Changed",
+            "webhookId": "order-status-webhook"
+        },
+        {
+            "parameters": {
+                "rule": {
+                    "interval": [
+                        {
+                            "field": "minutes",
+                            "minutesInterval": 5
+                        }
+                    ]
+                }
+            },
+            "type": "n8n-nodes-base.scheduleTrigger",
+            "typeVersion": 1.1,
+            "position": [
+                250,
+                500
+            ],
+            "id": "cron-trigger",
+            "name": "Schedule: Every 5 Minutes"
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "string": [
+                        {
+                            "value1": "={{$json.body.data.status}}",
+                            "operation": "equal",
+                            "value2": "Paid"
+                        }
+                    ]
+                }
+            },
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 1,
+            "position": [
+                450,
+                300
+            ],
+            "id": "check-paid-webhook",
+            "name": "Is Paid? (Webhook)"
+        },
+        {
+            "parameters": {
+                "requestMethod": "GET",
+                "url": "={{ 'http://10.28.14.243/109022005bootstrap/main_app/api/orders_api.php?api_key=erp_n8n_secret_88d4f20&action=update_status&status=Shipped&id=' + $json.body.entity_id }}",
+                "options": {},
+                "headerParametersUi": {
+                    "parameter": [
+                        {
+                            "name": "X-ERP-API-KEY",
+                            "value": "erp_n8n_secret_88d4f20"
+                        }
+                    ]
+                },
+                "jsonParameters": true,
+                "bodyParametersUi": {
+                    "parameter": [
+                        {
+                            "name": "action",
+                            "value": "update_status"
+                        },
+                        {
+                            "name": "id",
+                            "value": "={{$json.body.entity_id}}"
+                        },
+                        {
+                            "name": "status",
+                            "value": "Shipped"
+                        }
+                    ]
+                }
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 3,
+            "position": [
+                650,
+                200
+            ],
+            "id": "ship-webhook-order",
+            "name": "Ship Order (Webhook)"
+        },
+        {
+            "parameters": {
+                "requestMethod": "GET",
+                "url": "http://10.28.14.243/109022005bootstrap/main_app/api/orders_api.php?api_key=erp_n8n_secret_88d4f20",
+                "options": {},
+                "headerParametersUi": {
+                    "parameter": [
+                        {
+                            "name": "X-ERP-API-KEY",
+                            "value": "erp_n8n_secret_88d4f20"
+                        }
+                    ]
+                }
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 3,
+            "position": [
+                450,
+                500
+            ],
+            "id": "fetch-all-orders",
+            "name": "Get All Orders"
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "string": [
+                        {
+                            "value1": "={{$json.status}}",
+                            "operation": "equal",
+                            "value2": "Paid"
+                        }
+                    ]
+                }
+            },
+            "type": "n8n-nodes-base.filter",
+            "typeVersion": 1,
+            "position": [
+                650,
+                500
+            ],
+            "id": "filter-paid-orders",
+            "name": "Filter Paid Orders"
+        },
+        {
+            "parameters": {
+                "requestMethod": "GET",
+                "url": "={{ 'http://10.28.14.243/109022005bootstrap/main_app/api/orders_api.php?api_key=erp_n8n_secret_88d4f20&action=update_status&status=Shipped&id=' + $json.id }}",
+                "options": {},
+                "headerParametersUi": {
+                    "parameter": [
+                        {
+                            "name": "X-ERP-API-KEY",
+                            "value": "erp_n8n_secret_88d4f20"
+                        }
+                    ]
+                },
+                "jsonParameters": true,
+                "bodyParametersUi": {
+                    "parameter": [
+                        {
+                            "name": "action",
+                            "value": "update_status"
+                        },
+                        {
+                            "name": "id",
+                            "value": "={{$json.id}}"
+                        },
+                        {
+                            "name": "status",
+                            "value": "Shipped"
+                        }
+                    ]
+                }
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 3,
+            "position": [
+                850,
+                500
+            ],
+            "id": "ship-cron-order",
+            "name": "Ship Order (Cron)"
+        },
+        {
+            "parameters": {
+                "content": "## 🚀 V16 經典表達式版\n\n**修正項目：**\n1. **Classic Expression**: 使用 `{{ 'url' + id }}` 經典語法，這是 n8n 最穩定的表達式寫法。\n2. **解決 Invalid URL**: 避免使用較新的 JS 語法，確保 URL 被正確解析與送出。\n\n**這是最後的希望！**",
+                "height": 280,
+                "width": 350
+            },
+            "type": "n8n-nodes-base.stickyNote",
+            "typeVersion": 1,
+            "position": [
+                180,
+                80
+            ],
+            "id": "note-v11",
+            "name": "V11 說明"
+        }
+    ],
+    "connections": {
+        "Webhook: Order Status Changed": {
+            "main": [
+                [
+                    {
+                        "node": "Is Paid? (Webhook)",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Schedule: Every 5 Minutes": {
+            "main": [
+                [
+                    {
+                        "node": "Get All Orders",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Is Paid? (Webhook)": {
+            "main": [
+                [
+                    {
+                        "node": "Ship Order (Webhook)",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Get All Orders": {
+            "main": [
+                [
+                    {
+                        "node": "Filter Paid Orders",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Filter Paid Orders": {
+            "main": [
+                [
+                    {
+                        "node": "Ship Order (Cron)",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1"
+    }
+}

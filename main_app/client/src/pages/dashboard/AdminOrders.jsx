@@ -17,9 +17,11 @@ export default function AdminOrders() {
     const [showModal, setShowModal] = useState(false);
     const { theme } = useTheme();
 
-    // Fetch Data
+    // Fetch Data with Polling
     useEffect(() => {
         fetchOrders();
+        const interval = setInterval(fetchOrders, 5000); // Poll every 5 seconds
+        return () => clearInterval(interval);
     }, []);
 
     const fetchOrders = async () => {

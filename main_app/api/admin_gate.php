@@ -25,20 +25,50 @@ if (!$is_authorized && isset($_SESSION['user_role'])) {
 
 // 3. API Key Auth (for n8n)
 if (!$is_authorized) {
-    $apiKeyHeader = $headers['X-ERP-API-KEY'] ?? $headers['x-erp-api-key'] ?? '';
+    // Case-insensitive header lookup
+    $apiKeyHeader = '';
+    foreach ($headers as $key => $value) {
+        if (strtolower($key) === 'x-erp-api-key') {
+            $apiKeyHeader = $value;
+            break;
+        }
+    }
+
+    // Fallback: Direct check in $_SERVER (useful for some Apache/Nginx configs)
+    if (!$apiKeyHeader && isset($_SERVER['HTTP_X_ERP_API_KEY'])) {
+        $apiKeyHeader = $_SERVER['HTTP_X_ERP_API_KEY'];
+    }
+
+    // Fallback 2: Query Parameter (URL) - Most robust for quirky proxies
+    if (!$apiKeyHeader && isset($_GET['api_key'])) {
+        $apiKeyHeader = $_GET['api_key'];
+    }
+
     if ($apiKeyHeader) {
         $pdo = getDB();
         $stmt = $pdo->prepare("SELECT setting_value FROM system_settings WHERE setting_key = 'erp_api_key'");
         $stmt->execute();
         $storedKey = $stmt->fetchColumn();
-        if ($storedKey && $apiKeyHeader === $storedKey) {
+        
+        // Debugging: Success or Fail
+        if ($storedKey && trim($apiKeyHeader) === trim($storedKey)) {
+            file_put_contents('debug_auth_gate.log', date('Y-m-d H:i:s') . " - Auth SUCCESS. Key matched.\n", FILE_APPEND);
             $is_authorized = true;
             $user_role = 'admin';
+        } else {
+             file_put_contents('debug_auth_gate.log', date('Y-m-d H:i:s') . " - Auth FAILED. Mismatch. Rec: [$apiKeyHeader] vs Stored: [$storedKey]\n", FILE_APPEND);
         }
+    } else {
+        // Debugging: Log ALL headers to see what is actually arriving
+        $headerDump = print_r($headers, true);
+        $serverDump = print_r($_SERVER, true);
+        file_put_contents('debug_auth_gate.log', date('Y-m-d H:i:s') . " - NO API KEY FOUND.\nHeaders: $headerDump\nSERVER: $serverDump\n", FILE_APPEND);
     }
 }
 
 // 3. Final Gate
 if (!$is_authorized || $user_role !== 'admin') {
-    sendResponse(['success' => false, 'error' => 'Forbidden: Admin access only'], 403);
+    http_response_code(403);
+    echo json_encode(['success' => false, 'error' => 'Forbidden: Admin access only']);
+    exit;
 }

@@ -71,18 +71,31 @@ try {
             sendResponse(['success' => true]);
 
         } elseif ($action === 'proxy_n8n') {
+            $logFile = 'D:/xampp/htdocs/109022005bootstrap/main_app/api/debug_n8n_proxy.log';
+            
             // Get API Key
             $stmt = $pdo->query("SELECT setting_value FROM system_settings WHERE setting_key = 'n8n_api_key'");
             $res = $stmt->fetch(PDO::FETCH_ASSOC);
             $apiKey = $res ? $res['setting_value'] : '';
 
+            $inputStr = json_encode($input);
             if (!$apiKey) {
-                sendResponse(['error' => 'API Key not configured'], 400);
+                file_put_contents($logFile, date('Y-m-d H:i:s') . " - Error: API Key missing in DB. Input: $inputStr\n", FILE_APPEND);
+                sendResponse(['error' => 'n8n API Key not configured in ERP'], 400);
             }
 
-            $endpoint = $input['endpoint']; // e.g., 'workflows' or 'workflows/1/activate'
+            $endpoint = $input['endpoint'] ?? ''; 
             $httpMethod = $input['method'] ?? 'GET';
+            // Validate endpoint to prevent SSRF or weird paths
+            if (!$endpoint) {
+                file_put_contents($logFile, date('Y-m-d H:i:s') . " - Error: No endpoint provided. Input: $inputStr\n", FILE_APPEND);
+                sendResponse(['error' => 'Endpoint required'], 400);
+            }
+            
             $n8nUrl = "http://localhost:5678/api/v1/" . ltrim($endpoint, '/');
+
+            // Log request
+            file_put_contents($logFile, date('Y-m-d H:i:s') . " - Req: $httpMethod $n8nUrl | Input: $inputStr\n", FILE_APPEND);
 
             $ch = curl_init($n8nUrl);
             curl_setopt($ch, CURLOPT_HTTPHEADER, [
@@ -91,6 +104,7 @@ try {
             ]);
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
             curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $httpMethod);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 5); // 5s timeout
             
             if ($httpMethod === 'POST' && isset($input['body'])) {
                 curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($input['body']));
@@ -98,7 +112,18 @@ try {
 
             $response = curl_exec($ch);
             $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $curlError = curl_error($ch);
             curl_close($ch);
+
+            // Log response
+            file_put_contents($logFile, date('Y-m-d H:i:s') . " - Res: $httpCode | Err: $curlError | Body: " . substr($response, 0, 100) . "\n", FILE_APPEND);
+
+            if ($httpCode === 0) {
+                // Connection failed
+                http_response_code(500);
+                echo json_encode(['error' => 'Could not connect to n8n: ' . $curlError]);
+                exit;
+            }
 
             http_response_code($httpCode);
             echo $response;

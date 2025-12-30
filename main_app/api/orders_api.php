@@ -24,8 +24,13 @@ function getOrders($pdo) {
 try {
     $pdo = getDB();
     $method = $_SERVER['REQUEST_METHOD'];
+    
+    // Debugging: Log every request to this endpoint
+    $debugLog = 'debug_orders_api.log';
+    $rawInput = file_get_contents('php://input');
+    file_put_contents($debugLog, date('Y-m-d H:i:s') . " - Method: $method | URI: " . $_SERVER['REQUEST_URI'] . " | Body: $rawInput\n", FILE_APPEND);
 
-    if ($method === 'GET') {
+    if ($method === 'GET' && (!isset($_GET['action']) || $_GET['action'] !== 'update_status')) {
         $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
         
         if ($id > 0) {
@@ -50,9 +55,11 @@ try {
             $orders = getOrders($pdo);
             sendResponse(is_array($orders) ? $orders : []);
         }
-    } elseif ($method === 'POST') {
+    } elseif ($method === 'POST' || ($method === 'GET' && isset($_GET['action']) && $_GET['action'] === 'update_status')) {
         // Update Status
-        $input = getJsonInput();
+        $input = ($method === 'GET') ? $_GET : getJsonInput();
+        
+        // update_logic: // Label for shared update logic - removed as GET update logic is now separate
         if (isset($input['action']) && $input['action'] === 'update_status') {
             $stmt = $pdo->prepare("UPDATE orders SET status = ? WHERE id = ?");
             $stmt->execute([$input['status'], $input['id']]);
