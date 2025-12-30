@@ -113,16 +113,24 @@ try {
 
     // 5. Simulate Orders (Ensure each new user has activity)
     $newOrdersCount = 0;
-    $stmtOrder = $pdo->prepare("INSERT INTO orders (user_id, total_amount, status, order_number, created_at) VALUES (?, ?, ?, ?, ?)");
+    $stmtOrder = $pdo->prepare("INSERT INTO orders (user_id, total_amount, status, order_number, shipping_address, phone, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)");
     $stmtItem = $pdo->prepare("INSERT INTO order_items (order_id, product_id, product_name, quantity, price, subtotal) VALUES (?, ?, ?, ?, ?, ?)");
 
-    // Create 50 Transactions
-    for ($i = 0; $i < 50; $i++) {
+    // Fake address components
+    $cities = ['Taipei', 'New Taipei', 'Taichung', 'Tainan', 'Kaohsiung', 'Hsinchu', 'Taoyuan'];
+    $districts = ['Zhongzheng Dist.', 'Xinyi Dist.', 'Daan Dist.', 'Zhongshan Dist.', 'Songshan Dist.', 'Wanhua Dist.'];
+    $streets = ['Sec. 1, Roosevelt Rd.', 'Nanjing E. Rd.', 'Zhongxiao E. Rd.', 'Heping E. Rd.', 'Fuxing S. Rd.'];
+
+    // Create 100 Transactions (Increased for better distribution)
+    for ($i = 0; $i < 100; $i++) {
         $userId = $userIds[array_rand($userIds)];
-        $status = $statuses[array_rand($statuses)];
-        $timestamp = time() - rand(0, 60 * 24 * 60 * 60); // Last 60 days
+        $status = $statuses[$i % count($statuses)]; // Ensure even distribution of statuses
+        $timestamp = time() - rand(0, 90 * 24 * 60 * 60); // Last 90 days
         $createdAt = date('Y-m-d H:i:s', $timestamp);
         $orderNumber = 'ORD-' . date('YmdHis', $timestamp) . '-' . rand(1000, 9999);
+        
+        $address = $cities[array_rand($cities)] . ', ' . $districts[array_rand($districts)] . ', ' . $streets[array_rand($streets)] . ' No. ' . rand(1, 500);
+        $phone = '09' . rand(10000000, 99999999);
 
         // Random Items
         $itemCount = rand(1, 5);
@@ -144,7 +152,7 @@ try {
             $totalAmount += $subtotal;
         }
 
-        $stmtOrder->execute([$userId, $totalAmount, $status, $orderNumber, $createdAt]);
+        $stmtOrder->execute([$userId, $totalAmount, $status, $orderNumber, $address, $phone, $createdAt]);
         $orderId = $pdo->lastInsertId();
 
         foreach ($orderItems as $item) {

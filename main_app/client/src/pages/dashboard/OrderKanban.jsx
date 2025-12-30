@@ -33,6 +33,12 @@ const OrderCard = ({ order }) => {
                     </div>
                     <div className="small text-muted">{order.user_name || 'Guest'}</div>
                     <div className="fw-bold text-primary mt-1">NT$ {parseFloat(order.total_amount).toLocaleString()}</div>
+                    {order.priority_score && (
+                        <div className="small text-warning mt-1" title="AI 優先級">
+                            <i className="bi bi-magic me-1"></i>
+                            優先級: {parseFloat(order.priority_score).toFixed(1)}
+                        </div>
+                    )}
                 </Card.Body>
             </Card>
         </div>
