@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import axios from 'axios';
 import Swal from 'sweetalert2';
 import { useAuth } from '../context/AuthContext';
+import { API_BASE_URL } from '../utils/apiConfig';
 
 export default function useNotifications() {
     const { user } = useAuth();
@@ -12,7 +13,7 @@ export default function useNotifications() {
 
         const pollNotifications = async () => {
             try {
-                const response = await axios.get(`./api/notifications_api.php?user_id=${user.id}&last_checked=${lastCheckedRef.current}`);
+                const response = await axios.get(`${API_BASE_URL}/notifications_api.php?user_id=${user.id}&last_checked=${lastCheckedRef.current}`);
                 const data = response.data;
 
                 if (data.notifications && data.notifications.length > 0) {

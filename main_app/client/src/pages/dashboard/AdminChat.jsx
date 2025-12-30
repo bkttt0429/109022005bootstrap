@@ -3,6 +3,7 @@ import { Card, Form, Button } from 'react-bootstrap';
 import { FaPaperPlane, FaRobot, FaUser } from 'react-icons/fa';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import axios from 'axios';
+import { API_BASE_URL } from '../../utils/apiConfig';
 
 export default function AdminChat() {
     const [messages, setMessages] = useState([
@@ -30,7 +31,7 @@ export default function AdminChat() {
         setLoading(true);
 
         try {
-            const res = await axios.post('api/rag_chat.php', { message: input });
+            const res = await axios.post(`${API_BASE_URL}/rag_chat.php`, { message: input });
 
             // Parse for <data> tags
             let replyText = res.data.reply;

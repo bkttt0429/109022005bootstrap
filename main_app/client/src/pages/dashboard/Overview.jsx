@@ -8,6 +8,8 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 import Skeleton from 'react-loading-skeleton';
 import { useQuery } from '@tanstack/react-query';
 
+import { API_BASE_URL } from '../../utils/apiConfig';
+
 export default function Overview() {
     const { user, loading: authLoading } = useAuth();
     const navigate = useNavigate();
@@ -16,7 +18,7 @@ export default function Overview() {
     const { data: dashboardData, isLoading, isError } = useQuery({
         queryKey: ['dashboardStats'],
         queryFn: async () => {
-            const res = await axios.get('./api/dashboard_stats.php');
+            const res = await axios.get(`${API_BASE_URL}/dashboard_stats.php`);
             return res.data;
         },
         refetchInterval: 30000, // Background Refresh every 30s

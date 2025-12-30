@@ -1,14 +1,23 @@
 <?php
-require_once 'db.php';
+// CORS Configuration - Must be first
+if (isset($_SERVER['HTTP_ORIGIN'])) {
+    header("Access-Control-Allow-Origin: {$_SERVER['HTTP_ORIGIN']}");
+    header("Access-Control-Allow-Credentials: true");
+    header("Access-Control-Max-Age: 86400");
+} else {
+    header("Access-Control-Allow-Origin: *");
+}
 
-header('Content-Type: application/json');
-header("Access-Control-Allow-Origin: *");
-header("Access-Control-Allow-Headers: Content-Type");
+header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
+header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With");
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
     exit;
 }
+
+require_once 'db.php';
+require_once 'jwt_utils.php';
 
 // Debug logging function
 function logGoogleAuth($msg) {
@@ -107,21 +116,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
              $user['avatar_url'] = $avatar;
         }
 
-        // Start Session (Simulated for this demo architecture)
-        // In a real app, you'd set $_SESSION or return a JWT
-        // Here we just return the user object like auth_api.php does
-        
+        // Start Session (Optional, mostly for legacy, but kept for consistency)
         session_start();
         $_SESSION['user_id'] = $user['id'];
         
         unset($user['password_hash']); // Don't send hash back
         
+        // Generate JWT
+        $payload = [
+            'user_id' => $user['id'],
+            'email' => $user['email'],
+            'role' => $user['role'] ?? 'user'
+        ];
+        $jwt = JWT::encode($payload);
+
         logGoogleAuth("Login Successful for User ID: " . $user['id']);
-        echo json_encode(['success' => true, 'user' => $user]);
+        echo json_encode([
+            'success' => true, 
+            'user' => $user,
+            'token' => $jwt
+        ]);
 
     } catch (Exception $e) {
         http_response_code(500);
         echo json_encode(['error' => $e->getMessage()]);
     }
 }
-?>

@@ -1,0 +1,16 @@
+<IfModule mod_headers.c>
+    # 解決 Google 登入 Cross-Origin-Opener-Policy 錯誤的關鍵標頭
+    Header always set Cross-Origin-Opener-Policy "same-origin-allow-popups"
+    Header always set Cross-Origin-Embedder-Policy "unsafe-none"
+    
+    # 其他 OAuth 流程需要的標頭
+    Header always set Referrer-Policy "no-referrer-when-downgrade"
+    Header always set Access-Control-Allow-Origin "*"
+    Header always set Access-Control-Allow-Credentials "true"
+</IfModule>
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    # Basic rewrite rules if needed, usually React handles routing via hash or needs rewrite for history mode
+    # For now, leaving bare minimum for headers
+</IfModule>

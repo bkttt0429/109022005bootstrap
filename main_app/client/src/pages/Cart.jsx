@@ -11,6 +11,8 @@ import { FaTrash } from 'react-icons/fa';
 
 const MySwal = withReactContent(Swal);
 
+import { API_BASE_URL } from '../utils/apiConfig';
+
 export default function Cart() {
     const { cart, removeFromCart, clearCart } = useCart();
     const { user } = useAuth();
@@ -42,7 +44,7 @@ export default function Cart() {
                     }
                 });
 
-                const response = await axios.post('./api/checkout_api.php', {
+                const response = await axios.post(`${API_BASE_URL}/checkout_api.php`, {
                     cartItems: cart.items,
                     total: cart.total,
                     userId: user.id || 1

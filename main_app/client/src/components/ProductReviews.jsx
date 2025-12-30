@@ -4,6 +4,7 @@ import axios from 'axios';
 import { Button, Form, Spinner, Alert, Badge, ListGroup } from 'react-bootstrap';
 import { useAuth } from '../context/AuthContext';
 import ReactMarkdown from 'react-markdown';
+import { API_BASE_URL } from '../utils/apiConfig';
 
 export default function ProductReviews({ productId }) {
     const { user } = useAuth();
@@ -19,7 +20,7 @@ export default function ProductReviews({ productId }) {
     const { data, isLoading } = useQuery({
         queryKey: ['reviews', productId],
         queryFn: async () => {
-            const res = await axios.get(`api/reviews_api.php?product_id=${productId}`);
+            const res = await axios.get(`${API_BASE_URL}/reviews_api.php?product_id=${productId}`);
             return res.data;
         }
     });
@@ -27,7 +28,7 @@ export default function ProductReviews({ productId }) {
     // Submit Review Mutation
     const mutation = useMutation({
         mutationFn: async (newReview) => {
-            return await axios.post('api/reviews_api.php', newReview);
+            return await axios.post(`${API_BASE_URL}/reviews_api.php`, newReview);
         },
         onSuccess: () => {
             queryClient.invalidateQueries(['reviews', productId]);
@@ -49,7 +50,7 @@ export default function ProductReviews({ productId }) {
     const fetchSummary = async () => {
         setLoadingSummary(true);
         try {
-            const res = await axios.get(`api/ai_summary.php?product_id=${productId}`);
+            const res = await axios.get(`${API_BASE_URL}/ai_summary.php?product_id=${productId}`);
             setSummary(res.data.summary);
         } catch (error) {
             setSummary('無法生成摘要，請稍後再試。');

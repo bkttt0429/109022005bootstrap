@@ -28,9 +28,14 @@ export default function SignIn() {
         try {
             const res = await axios.post(`${API_BASE_URL}/auth_google.php`, { token: credentialResponse.credential });
             if (res.data.success) {
-                // Manually trigger reload to pick up session or implement context refresh
-                // Ideally, reuse a refined login context method, but simplest is redirect
-                // Let's assume AuthContext checks session on mount, so a reload helps or minimal refresh
+                // Store Token
+                const token = res.data.token;
+                if (token) {
+                    localStorage.setItem('authToken', token);
+                    axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+                }
+
+                // Reload to refresh AuthContext state
                 window.location.reload();
             } else {
                 setError('Google Login Failed');
@@ -53,6 +58,7 @@ export default function SignIn() {
                             onError={() => {
                                 setError('Google Login Failed');
                             }}
+                            ux_mode="redirect"
                         />
                     </div>
 
