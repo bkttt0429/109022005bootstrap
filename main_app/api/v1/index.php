@@ -1,6 +1,8 @@
 <?php
 // Unified API Entry Point (v1)
 require_once dirname(__DIR__) . '/api_bootstrap.php';
+include_once dirname(__DIR__) . '/tools/super_debug_include.php';
+file_put_contents(dirname(__DIR__) . '/debug_request.log', date('Y-m-d H:i:s') . " - " . $_SERVER['REQUEST_METHOD'] . " " . $_SERVER['REQUEST_URI'] . "\n", FILE_APPEND);
 
 // Autoloader for src/
 spl_autoload_register(function ($class) {
@@ -40,6 +42,15 @@ $router->add('POST', '/orders/update-status', 'OrdersController@updateStatusLega
 // Products
 $router->add('GET', '/products', 'ProductsController@index');
 $router->add('GET', '/products/{id}', 'ProductsController@show');
+$router->add('POST', '/products', 'ProductsController@store');
+$router->add('PUT', '/products/{id}', 'ProductsController@update');
+$router->add('DELETE', '/products/{id}', 'ProductsController@destroy');
+
+// Inventory
+$router->add('GET', '/inventory', 'InventoryController@getInventory');
+$router->add('GET', '/inventory/inbound', 'InventoryController@inbound');
+$router->add('POST', '/inventory/inbound', 'InventoryController@inbound');
+$router->add('POST', '/inventory/trigger-restock', 'InventoryController@triggerRestock');
 
 // AI Chat
 $router->add('POST', '/chat', 'RAGController@chat');

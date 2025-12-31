@@ -36,6 +36,9 @@ CREATE TABLE IF NOT EXISTS products (
     category VARCHAR(100) DEFAULT 'General',
     image_url TEXT,
     stock_quantity INT DEFAULT 0,
+    min_stock_level INT DEFAULT 10,
+    lead_time_days INT DEFAULT 3,
+    avg_daily_sales DECIMAL(10, 2) DEFAULT 0.0,
     sku VARCHAR(50) UNIQUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP

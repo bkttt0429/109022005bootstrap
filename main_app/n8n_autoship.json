@@ -1,5 +1,5 @@
 {
-    "name": "ERP+ Auto-Ship (V16 Classic Expression)",
+    "name": "ERP+ Auto-Ship & Smart Restock (V30 Connection Fix)",
     "nodes": [
         {
             "parameters": {
@@ -14,8 +14,7 @@
                 300
             ],
             "id": "webhook-trigger",
-            "name": "Webhook: Order Status Changed",
-            "webhookId": "order-status-webhook"
+            "name": "Webhook: Order Status Changed"
         },
         {
             "parameters": {
@@ -60,37 +59,12 @@
         },
         {
             "parameters": {
-                "requestMethod": "GET",
-                "url": "={{ 'http://10.28.14.243/109022005bootstrap/main_app/api/orders_api.php?api_key=erp_n8n_secret_88d4f20&action=update_status&status=Shipped&id=' + $json.body.entity_id }}",
-                "options": {},
-                "headerParametersUi": {
-                    "parameter": [
-                        {
-                            "name": "X-ERP-API-KEY",
-                            "value": "erp_n8n_secret_88d4f20"
-                        }
-                    ]
-                },
-                "jsonParameters": true,
-                "bodyParametersUi": {
-                    "parameter": [
-                        {
-                            "name": "action",
-                            "value": "update_status"
-                        },
-                        {
-                            "name": "id",
-                            "value": "={{$json.body.entity_id}}"
-                        },
-                        {
-                            "name": "status",
-                            "value": "Shipped"
-                        }
-                    ]
-                }
+                "method": "GET",
+                "url": "={{ 'http://host.docker.internal/109022005bootstrap/main_app/api/orders_api.php?api_key=erp_n8n_secret_88d4f20&action=update_status&status=Shipped&id=' + ($json.body.entity_id || $json.id) }}",
+                "options": {}
             },
             "type": "n8n-nodes-base.httpRequest",
-            "typeVersion": 3,
+            "typeVersion": 4.1,
             "position": [
                 650,
                 200
@@ -100,20 +74,12 @@
         },
         {
             "parameters": {
-                "requestMethod": "GET",
-                "url": "http://10.28.14.243/109022005bootstrap/main_app/api/orders_api.php?api_key=erp_n8n_secret_88d4f20",
-                "options": {},
-                "headerParametersUi": {
-                    "parameter": [
-                        {
-                            "name": "X-ERP-API-KEY",
-                            "value": "erp_n8n_secret_88d4f20"
-                        }
-                    ]
-                }
+                "method": "GET",
+                "url": "http://host.docker.internal/109022005bootstrap/main_app/api/orders_api.php?api_key=erp_n8n_secret_88d4f20",
+                "options": {}
             },
             "type": "n8n-nodes-base.httpRequest",
-            "typeVersion": 3,
+            "typeVersion": 4.1,
             "position": [
                 450,
                 500
@@ -144,37 +110,12 @@
         },
         {
             "parameters": {
-                "requestMethod": "GET",
-                "url": "={{ 'http://10.28.14.243/109022005bootstrap/main_app/api/orders_api.php?api_key=erp_n8n_secret_88d4f20&action=update_status&status=Shipped&id=' + $json.id }}",
-                "options": {},
-                "headerParametersUi": {
-                    "parameter": [
-                        {
-                            "name": "X-ERP-API-KEY",
-                            "value": "erp_n8n_secret_88d4f20"
-                        }
-                    ]
-                },
-                "jsonParameters": true,
-                "bodyParametersUi": {
-                    "parameter": [
-                        {
-                            "name": "action",
-                            "value": "update_status"
-                        },
-                        {
-                            "name": "id",
-                            "value": "={{$json.id}}"
-                        },
-                        {
-                            "name": "status",
-                            "value": "Shipped"
-                        }
-                    ]
-                }
+                "method": "GET",
+                "url": "={{ 'http://host.docker.internal/109022005bootstrap/main_app/api/orders_api.php?api_key=erp_n8n_secret_88d4f20&action=update_status&status=Shipped&id=' + $json.id }}",
+                "options": {}
             },
             "type": "n8n-nodes-base.httpRequest",
-            "typeVersion": 3,
+            "typeVersion": 4.1,
             "position": [
                 850,
                 500
@@ -184,18 +125,48 @@
         },
         {
             "parameters": {
-                "content": "## 🚀 V16 經典表達式版\n\n**修正項目：**\n1. **Classic Expression**: 使用 `{{ 'url' + id }}` 經典語法，這是 n8n 最穩定的表達式寫法。\n2. **解決 Invalid URL**: 避免使用較新的 JS 語法，確保 URL 被正確解析與送出。\n\n**這是最後的希望！**",
-                "height": 280,
-                "width": 350
+                "httpMethod": "POST",
+                "path": "restock-trigger",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 1,
+            "position": [
+                250,
+                800
+            ],
+            "id": "webhook-restock",
+            "name": "Webhook: Restock Request"
+        },
+        {
+            "parameters": {
+                "method": "GET",
+                "url": "={{ 'http://host.docker.internal/109022005bootstrap/main_app/api/v1/inventory/inbound?api_key=erp_n8n_secret_88d4f20&product_id=' + $json.body.entity_id + '&quantity=' + $json.body.data.suggested_qty + '&reason=AUTO_RESTOCK_V30' }}",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.1,
+            "position": [
+                600,
+                800
+            ],
+            "id": "api-restock-inbound",
+            "name": "Restock Action (Connected)"
+        },
+        {
+            "parameters": {
+                "content": "## 🚀 ERP+ V30 連線修復版\n\n**修正重點：**\n1. **修復斷線問題**：修正了 n8n JSON 中節點名稱對應錯誤，解決「執行成功但無反應」的問題。\n2. **Host Docker Internal**：預設使用 docker 指向，如果需要 localhost 請手動修改。\n\n**匯入後請確認節點之間有連線！**",
+                "height": 380,
+                "width": 380
             },
             "type": "n8n-nodes-base.stickyNote",
             "typeVersion": 1,
             "position": [
                 180,
-                80
+                -150
             ],
-            "id": "note-v11",
-            "name": "V11 說明"
+            "id": "note-v30",
+            "name": "V30 說明"
         }
     ],
     "connections": {
@@ -248,6 +219,17 @@
                 [
                     {
                         "node": "Ship Order (Cron)",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Webhook: Restock Request": {
+            "main": [
+                [
+                    {
+                        "node": "Restock Action (Connected)",
                         "type": "main",
                         "index": 0
                     }

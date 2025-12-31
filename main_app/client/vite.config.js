@@ -40,10 +40,8 @@ export default defineConfig({
   ],
   base: './', // Relative base path for flexible deployment in XAMPP subfolders
   server: {
-    headers: {
-      'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
-      'Cross-Origin-Embedder-Policy': 'unsafe-none',
-    },
+    // Headers removed to fix Google Login Popup
+
     proxy: {
       '/api': {
         target: 'http://localhost/109022005bootstrap/main_app/api',

@@ -3,15 +3,17 @@ import { Container, Row, Col, Card, ListGroup, Badge, Button } from 'react-boots
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import axios from 'axios';
-import { FaRobot, FaChartBar } from 'react-icons/fa';
+import { FaRobot, FaChartBar, FaEye } from 'react-icons/fa';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import Skeleton from 'react-loading-skeleton';
 import { useQuery } from '@tanstack/react-query';
+import { useTheme } from '../../context/ThemeContext';
 
 import { API_BASE_URL } from '../../utils/apiConfig';
 
 export default function Overview() {
     const { user, loading: authLoading } = useAuth();
+    const { theme } = useTheme();
     const navigate = useNavigate();
 
     // React Query Fetcher
@@ -38,22 +40,22 @@ export default function Overview() {
             <Row>
                 <Col md={8} className="mb-4">
                     <Card className="shadow-sm border-0 mb-4">
-                        <Card.Header className="bg-white border-0 fw-bold d-flex align-items-center">
+                        <Card.Header className="bg-light border-0 fw-bold d-flex align-items-center text-dark" style={{ borderTopLeftRadius: '10px', borderTopRightRadius: '10px' }}>
                             <FaChartBar className="me-2 text-primary" /> 月銷售/庫存概覽
                         </Card.Header>
-                        <Card.Body style={{ height: '300px' }}>
+                        <Card.Body style={{ height: '350px', position: 'relative' }}>
                             {isLoading ? (
                                 <Skeleton height={260} />
                             ) : (
-                                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                                <ResponsiveContainer width="100%" height="100%" minWidth={0} debounce={100}>
                                     <BarChart data={chartData}>
-                                        <CartesianGrid strokeDasharray="3 3" />
-                                        <XAxis dataKey="name" />
-                                        <YAxis />
-                                        <Tooltip />
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={theme === 'dark' ? '#eee' : '#ccc'} />
+                                        <XAxis dataKey="name" tick={{ fill: '#666' }} />
+                                        <YAxis tick={{ fill: '#666' }} />
+                                        <Tooltip contentStyle={{ borderRadius: '10px', border: 'none', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }} />
                                         <Legend />
-                                        <Bar dataKey="sales" fill="#0d6efd" name="銷售額" />
-                                        <Bar dataKey="inventory" fill="#0dcaf0" name="庫存量" />
+                                        <Bar dataKey="sales" fill="#0d6efd" name="銷售額" radius={[4, 4, 0, 0]} />
+                                        <Bar dataKey="inventory" fill="#0dcaf0" name="庫存量" radius={[4, 4, 0, 0]} />
                                     </BarChart>
                                 </ResponsiveContainer>
                             )}
@@ -71,8 +73,8 @@ export default function Overview() {
                 </Col>
 
                 <Col md={4}>
-                    <Card className="shadow-sm border-0 h-100">
-                        <Card.Header className="bg-white border-0 fw-bold">系統狀態</Card.Header>
+                    <Card className="shadow-sm border-0">
+                        <Card.Header className="bg-light border-0 fw-bold text-dark" style={{ borderTopLeftRadius: '10px', borderTopRightRadius: '10px' }}>系統狀態</Card.Header>
                         <ListGroup variant="flush">
                             <ListGroup.Item className="d-flex justify-content-between align-items-center">
                                 伺服器狀態

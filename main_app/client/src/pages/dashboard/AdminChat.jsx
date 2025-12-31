@@ -6,7 +6,7 @@ import ReactMarkdown from 'react-markdown';
 import { toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
-import { API_BASE_URL } from '../../utils/apiConfig';
+import { API_BASE_URL, API_V1_URL } from '../../utils/apiConfig';
 
 export default function AdminChat() {
     const [messages, setMessages] = useState(() => {
@@ -46,7 +46,7 @@ export default function AdminChat() {
         setLoading(true);
 
         try {
-            const res = await axios.post(`${API_BASE_URL}/rag_chat.php`, { message: input });
+            const res = await axios.post(`${API_V1_URL}/chat`, { message: input });
             let replyText = res.data.reply;
 
             // Parse for <action> tags (NEW: Trigger API)
@@ -57,9 +57,7 @@ export default function AdminChat() {
                     replyText = replyText.replace(/<action>.*?<\/action>/s, '').trim();
 
                     if (actionData.type === 'update_status') {
-                        await axios.post(`${API_BASE_URL}/orders_api.php`, {
-                            action: 'update_status',
-                            id: actionData.id,
+                        await axios.put(`${API_V1_URL}/orders/${actionData.id}/status`, {
                             status: actionData.status
                         });
                         toast.success(`🤖 AI 執行指令：將訂單 #${actionData.id} 更新為 ${actionData.status}`, { icon: '⚡' });

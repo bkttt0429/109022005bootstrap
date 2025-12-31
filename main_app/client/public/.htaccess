@@ -1,3 +1,17 @@
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule ^ index.html [QSA,L]
+</IfModule>
+
+# 強制啟用標頭設定
 <IfModule mod_headers.c>
-    Header set Cross-Origin-Opener-Policy "same-origin-allow-popups"
+  # 解決 Google Login postMessage 阻擋問題
+  Header always set Cross-Origin-Opener-Policy "same-origin-allow-popups"
+  Header always set Cross-Origin-Embedder-Policy "unsafe-none"
+  
+  # 允許跨域請求
+  Header always set Access-Control-Allow-Origin "*"
+  Header always set Access-Control-Allow-Credentials "true"
 </IfModule>

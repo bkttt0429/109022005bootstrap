@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Row, Col, Card, Table, Spinner } from 'react-bootstrap';
+import { Container, Row, Col, Card, Table, Spinner, Modal, Button, ListGroup, Badge } from 'react-bootstrap';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend } from 'recharts';
-import { FaMoneyBillWave, FaArrowUp, FaArrowDown, FaReceipt, FaWallet } from 'react-icons/fa';
+import { FaMoneyBillWave, FaArrowUp, FaArrowDown, FaReceipt, FaWallet, FaBox } from 'react-icons/fa';
 import axios from 'axios';
 import { API_BASE_URL } from '../../utils/apiConfig';
 import { useTheme } from '../../context/ThemeContext';
@@ -9,6 +9,9 @@ import { useTheme } from '../../context/ThemeContext';
 export default function Accounting() {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [selectedOrder, setSelectedOrder] = useState(null);
+    const [showModal, setShowModal] = useState(false);
+    const [fetchingOrder, setFetchingOrder] = useState(false);
     const { theme } = useTheme();
 
     useEffect(() => {
@@ -31,6 +34,19 @@ export default function Accounting() {
         };
         fetchData();
     }, []);
+
+    const handleShowDetails = async (orderId) => {
+        setFetchingOrder(true);
+        try {
+            const res = await axios.get(`${API_BASE_URL}/orders_api.php?id=${orderId}`);
+            setSelectedOrder(res.data);
+            setShowModal(true);
+        } catch (err) {
+            console.error("Failed to fetch order details", err);
+        } finally {
+            setFetchingOrder(false);
+        }
+    };
 
     if (loading) {
         return (
@@ -83,8 +99,8 @@ export default function Accounting() {
                 <Col lg={8}>
                     <Card className="border-0 shadow-sm p-4">
                         <h5 className="mb-4 fw-bold">營收與支出趨勢</h5>
-                        <div style={{ width: '100%', height: 350 }}>
-                            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                        <div style={{ width: '100%', height: 350, position: 'relative' }}>
+                            <ResponsiveContainer width="100%" height="100%" minWidth={0} debounce={100}>
                                 <AreaChart data={data.chartData}>
                                     <defs>
                                         <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
@@ -109,8 +125,8 @@ export default function Accounting() {
                 <Col lg={4}>
                     <Card className="border-0 shadow-sm p-4 h-100">
                         <h5 className="mb-4 fw-bold">獲利分析</h5>
-                        <div style={{ width: '100%', height: 300 }}>
-                            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                        <div style={{ width: '100%', height: 300, position: 'relative' }}>
+                            <ResponsiveContainer width="100%" height="100%" minWidth={0} debounce={100}>
                                 <BarChart data={data.chartData}>
                                     <XAxis dataKey="name" hide />
                                     <Tooltip />
@@ -132,7 +148,7 @@ export default function Accounting() {
             </Row>
 
             <Card className="border-0 shadow-sm p-4">
-                <h5 className="mb-4 fw-bold">最近财务异動</h5>
+                <h5 className="mb-4 fw-bold">最近財務異動</h5>
                 <Table responsive hover borderless className="align-middle">
                     <thead className="bg-light">
                         <tr>
@@ -155,13 +171,90 @@ export default function Accounting() {
                                     </span>
                                 </td>
                                 <td>
-                                    <button className="btn btn-sm btn-outline-secondary">詳情</button>
+                                    <button
+                                        className="btn btn-sm btn-outline-primary"
+                                        onClick={() => handleShowDetails(tx.id)}
+                                        disabled={fetchingOrder}
+                                    >
+                                        {fetchingOrder ? <Spinner size="sm" /> : '詳情'}
+                                    </button>
                                 </td>
                             </tr>
                         ))}
                     </tbody>
                 </Table>
             </Card>
+
+            {/* Transaction Details Modal */}
+            <Modal show={showModal} onHide={() => setShowModal(false)} size="lg" centered>
+                <Modal.Header closeButton className="border-0 bg-light">
+                    <Modal.Title className="fw-bold fs-5">
+                        <FaReceipt className="me-2 text-primary" />
+                        交易詳細資訊 - {selectedOrder?.order_number}
+                    </Modal.Title>
+                </Modal.Header>
+                <Modal.Body className="p-4">
+                    {selectedOrder && (
+                        <>
+                            <Row className="mb-4">
+                                <Col md={6}>
+                                    <div className="mb-3">
+                                        <small className="text-muted d-block uppercase mb-1">客戶資訊</small>
+                                        <div className="fw-bold">{selectedOrder.user_name || '系統訪客'}</div>
+                                        <div className="text-muted small">{selectedOrder.user_email}</div>
+                                    </div>
+                                    <div>
+                                        <small className="text-muted d-block uppercase mb-1">下單日期</small>
+                                        <div>{new Date(selectedOrder.created_at).toLocaleString()}</div>
+                                    </div>
+                                </Col>
+                                <Col md={6}>
+                                    <div className="mb-3 text-md-end">
+                                        <small className="text-muted d-block uppercase mb-1">目前狀態</small>
+                                        <Badge bg={selectedOrder.status === 'Completed' ? 'success' : 'warning'}>
+                                            {selectedOrder.status}
+                                        </Badge>
+                                    </div>
+                                    <div className="text-md-end">
+                                        <small className="text-muted d-block uppercase mb-1">總金額</small>
+                                        <h4 className="text-primary fw-bold">${parseFloat(selectedOrder.total_amount).toLocaleString()}</h4>
+                                    </div>
+                                </Col>
+                            </Row>
+
+                            <h6 className="fw-bold border-bottom pb-2 mb-3">商品清單</h6>
+                            <ListGroup variant="flush">
+                                {selectedOrder.items?.map((item, idx) => (
+                                    <ListGroup.Item key={idx} className="px-0 d-flex justify-content-between align-items-center border-0 py-2">
+                                        <div className="d-flex align-items-center">
+                                            <div className="p-2 bg-light rounded me-3">
+                                                <FaBox className="text-secondary" />
+                                            </div>
+                                            <div>
+                                                <div className="fw-bold small">{item.product_name || `商品 ID: ${item.product_id}`}</div>
+                                                <div className="text-muted extra-small">數量: {item.quantity} × ${parseFloat(item.price).toLocaleString()}</div>
+                                            </div>
+                                        </div>
+                                        <div className="fw-bold text-dark">
+                                            ${(item.quantity * item.price).toLocaleString()}
+                                        </div>
+                                    </ListGroup.Item>
+                                ))}
+                            </ListGroup>
+                        </>
+                    )}
+                </Modal.Body>
+                <Modal.Footer className="border-0 bg-light rounded-bottom">
+                    <Button variant="secondary" onClick={() => setShowModal(false)} className="px-4">
+                        關閉
+                    </Button>
+                </Modal.Footer>
+            </Modal>
+
+            <style>{`
+                .extra-small { font-size: 0.75rem; }
+                .uppercase { text-transform: uppercase; letter-spacing: 0.5px; }
+            `}</style>
         </Container>
     );
 }

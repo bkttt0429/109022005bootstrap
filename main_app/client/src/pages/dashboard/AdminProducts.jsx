@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, Table, Button, Modal, Form, Badge } from 'react-bootstrap';
 import { FaPlus, FaEdit, FaTrash } from 'react-icons/fa';
 import axios from 'axios';
-import { API_BASE_URL } from '../../utils/apiConfig';
+import { API_V1_URL } from '../../utils/apiConfig';
 import { toast } from 'react-hot-toast';
 import Swal from 'sweetalert2';
 import withReactContent from 'sweetalert2-react-content';
@@ -26,7 +26,7 @@ export default function AdminProducts() {
 
     const fetchProducts = async () => {
         try {
-            const res = await axios.get(`${API_BASE_URL}/products_api.php`);
+            const res = await axios.get(`${API_V1_URL}/products`);
             const data = Array.isArray(res.data) ? res.data : [];
             setProducts(data);
         } catch (error) {
@@ -59,21 +59,17 @@ export default function AdminProducts() {
 
     const onFormSubmit = async (data) => {
         try {
-            // Check if mock mode or real API
-            // For now, continue mock simulation for Create/Update as API might not exist yet
-            // But we will optimize to use state correctly
-
-            toast.success(editing ? '商品已更新' : '商品已排程新增 (模擬)');
-
             if (editing) {
-                setProducts(products.map(p => p.id === editing.id ? { ...data, id: editing.id } : p));
+                await axios.put(`${API_V1_URL}/products/${editing.id}`, data);
+                toast.success('商品已更新');
             } else {
-                setProducts([...products, { ...data, id: Date.now() }]);
+                await axios.post(`${API_V1_URL}/products`, data);
+                toast.success('商品已新增');
             }
-
+            fetchProducts();
             handleClose();
         } catch (error) {
-            toast.error('操作失敗');
+            toast.error(error.response?.data?.error || '操作失敗');
         }
     };
 
@@ -91,19 +87,16 @@ export default function AdminProducts() {
 
         if (result.isConfirmed) {
             try {
-                // Actual API call would be here:
-                // await axios.delete(`./api/products_api.php?id=${id}`);
-
-                // Simulate deletion for demo
-                setProducts(products.filter(p => p.id !== id));
+                await axios.delete(`${API_V1_URL}/products/${id}`);
 
                 MySwal.fire(
                     '已刪除！',
                     '商品資料已移除。',
                     'success'
                 );
+                fetchProducts();
             } catch (error) {
-                toast.error('刪除失敗');
+                toast.error(error.response?.data?.error || '刪除失敗');
             }
         }
     };
@@ -113,7 +106,7 @@ export default function AdminProducts() {
             <div className="d-flex justify-content-between align-items-center mb-4">
                 <h2 className={theme === 'dark' ? 'text-white' : 'text-dark'}>商品管理</h2>
                 <div>
-                    <Button variant="success" className="me-2" onClick={() => window.open(`${API_BASE_URL}/export_api.php?type=products`, '_blank')}>
+                    <Button variant="success" className="me-2" onClick={() => window.open(`${API_V1_URL.replace('/v1', '')}/export_api.php?type=products`, '_blank')}>
                         匯出 CSV
                     </Button>
                     <Button variant="primary" onClick={() => handleShow()}>

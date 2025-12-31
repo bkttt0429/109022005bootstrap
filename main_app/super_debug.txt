@@ -1,0 +1,92 @@
+2025-12-30 22:31:01 - Request received from ::1
+URI: /109022005bootstrap/main_app/api/v1/products
+Params: Array
+(
+)
+
+2025-12-30 22:31:06 - Request received from ::1
+URI: /109022005bootstrap/main_app/api/v1/products
+Params: Array
+(
+)
+
+2025-12-30 22:31:07 - Request received from ::1
+URI: /109022005bootstrap/main_app/api/v1/inventory
+Params: Array
+(
+)
+
+2025-12-30 22:31:13 - Request received from ::1
+URI: /109022005bootstrap/main_app/api/v1/inventory
+Params: Array
+(
+)
+
+2025-12-30 22:31:15 - Request received from ::1
+URI: /109022005bootstrap/main_app/api/v1/inventory/trigger-restock
+Params: Array
+(
+)
+
+2025-12-30 22:31:29 - Request received from ::1
+URI: /109022005bootstrap/main_app/api/v1/inventory/trigger-restock
+Params: Array
+(
+)
+
+2025-12-30 22:31:31 - Request received from ::1
+URI: /109022005bootstrap/main_app/api/v1/inventory/trigger-restock
+Params: Array
+(
+)
+
+2025-12-30 22:36:10 - Request received from ::1
+URI: /109022005bootstrap/main_app/api/v1/inventory
+Params: Array
+(
+)
+
+2025-12-30 22:36:12 - Request received from ::1
+URI: /109022005bootstrap/main_app/api/v1/inventory
+Params: Array
+(
+)
+
+2025-12-30 22:36:16 - Request received from ::1
+URI: /109022005bootstrap/main_app/api/v1/inventory/trigger-restock
+Params: Array
+(
+)
+
+2025-12-30 22:36:16 - Request received from 127.0.0.1
+URI: /109022005bootstrap/main_app/api/v1/inventory/inbound?api_key=erp_n8n_secret_88d4f20&product_id=45&quantity=138.6&reason=AUTO_RESTOCK_V30
+Params: Array
+(
+    [api_key] => erp_n8n_secret_88d4f20
+    [product_id] => 45
+    [quantity] => 138.6
+    [reason] => AUTO_RESTOCK_V30
+)
+
+2025-12-30 22:36:44 - Request received from ::1
+URI: /109022005bootstrap/main_app/api/v1/inventory/trigger-restock
+Params: Array
+(
+)
+
+2025-12-30 22:36:44 - Request received from 127.0.0.1
+URI: /109022005bootstrap/main_app/api/v1/inventory/inbound?api_key=erp_n8n_secret_88d4f20&product_id=45&quantity=138.6&reason=AUTO_RESTOCK_V30
+Params: Array
+(
+    [api_key] => erp_n8n_secret_88d4f20
+    [product_id] => 45
+    [quantity] => 138.6
+    [reason] => AUTO_RESTOCK_V30
+)
+
+2025-12-30 22:36:59 - Request received from ::1
+URI: /109022005bootstrap/main_app/api/v1/inventory
+Params: Array
+(
+)
+

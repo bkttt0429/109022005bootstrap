@@ -1,7 +1,7 @@
 import React from 'react';
 import { Nav } from 'react-bootstrap';
 import { Link, useLocation } from 'react-router-dom';
-import { FaChartLine, FaBox, FaShoppingBag, FaRobot, FaCog, FaSignOutAlt, FaMoneyBillWave } from 'react-icons/fa';
+import { FaChartLine, FaBox, FaShoppingBag, FaRobot, FaCog, FaSignOutAlt, FaMoneyBillWave, FaTruckLoading } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 
@@ -19,6 +19,7 @@ export default function Sidebar() {
         { path: '/dashboard/kanban', label: '訂單看板', icon: <FaChartLine /> },
         { path: '/dashboard/chat', label: 'RAG 助理', icon: <FaRobot /> },
         { path: '/dashboard/accounting', label: '會計系統', icon: <FaMoneyBillWave /> },
+        { path: '/dashboard/inventory', label: '進貨管理', icon: <FaTruckLoading /> },
         { path: '/dashboard/automation', label: '自動化 (n8n)', icon: <FaCog /> },
     ];
 

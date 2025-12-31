@@ -41,10 +41,34 @@ class OrderService {
         $stmt = $this->pdo->prepare("UPDATE orders SET status = ? WHERE id = ?");
         $stmt->execute([$status, $id]);
 
+        // If status is Shipped, deduct stock
+        if ($status === 'Shipped') {
+            $this->deductStock($id);
+        }
+
         // Integration logic (Webhooks, Notifications)
         $this->triggerPostUpdateActions($id, $status);
         
         return true;
+    }
+
+    private function deductStock($orderId) {
+        // Fetch order items
+        $stmt = $this->pdo->prepare("SELECT product_id, quantity FROM order_items WHERE order_id = ?");
+        $stmt->execute([$orderId]);
+        $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        foreach ($items as $item) {
+            // Deduct stock
+            $updateStmt = $this->pdo->prepare("UPDATE products SET stock_quantity = stock_quantity - ? WHERE id = ?");
+            $updateStmt->execute([$item['quantity'], $item['product_id']]);
+
+            // Log movement
+            $logStmt = $this->pdo->prepare("INSERT INTO inventory_movements 
+                (product_id, change_amount, type, reason, created_at) 
+                VALUES (?, ?, 'outbound', 'Order Shipped #$orderId', NOW())");
+            $logStmt->execute([$item['product_id'], -$item['quantity']]);
+        }
     }
 
     private function triggerPostUpdateActions($id, $status) {

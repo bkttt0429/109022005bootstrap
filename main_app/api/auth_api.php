@@ -2,7 +2,7 @@
 require_once 'api_bootstrap.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-    // Check Status
+    // 1. Check Session first
     if (isset($_SESSION['user_id'])) {
         sendResponse([
             'loggedIn' => true,
@@ -12,9 +12,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 'role' => $_SESSION['user_role'] ?? 'user'
             ]
         ]);
-    } else {
-        sendResponse(['loggedIn' => false]);
+    } 
+    
+    // 2. If no session, try checking JWT from Authorization header
+    $headers = getallheaders();
+    $authHeader = $headers['Authorization'] ?? $headers['authorization'] ?? '';
+    
+    if (strpos($authHeader, 'Bearer ') === 0) {
+        $token = substr($authHeader, 7);
+        $payload = JWT::decode($token);
+        
+        if ($payload && isset($payload['user_id'])) {
+            // Found valid token, sync back to session for this request
+            sendResponse([
+                'loggedIn' => true,
+                'user' => [
+                    'id' => $payload['user_id'],
+                    'email' => $payload['email'],
+                    'role' => $payload['role'] ?? 'user'
+                ]
+            ]);
+        }
     }
+
+    sendResponse(['loggedIn' => false]);
 } elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Login
     $input = getJsonInput();

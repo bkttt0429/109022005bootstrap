@@ -25,22 +25,27 @@ export default function SignIn() {
     };
 
     const handleGoogleSuccess = async (credentialResponse) => {
+        console.log("Google response received", credentialResponse);
         try {
             const res = await axios.post(`${API_BASE_URL}/auth_google.php`, { token: credentialResponse.credential });
+            console.log("API response", res.data);
             if (res.data.success) {
-                // Store Token
                 const token = res.data.token;
                 if (token) {
                     localStorage.setItem('authToken', token);
                     axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
                 }
-
-                // Reload to refresh AuthContext state
-                window.location.reload();
+                setTimeout(() => {
+                    // Use href to ensure we go to the right place
+                    const baseUrl = window.location.href.split('#')[0];
+                    window.location.href = baseUrl + '#/dashboard';
+                    window.location.reload();
+                }, 500);
             } else {
-                setError('Google Login Failed');
+                setError('Google Login Failed: ' + (res.data.error || ''));
             }
         } catch (err) {
+            console.error("Auth error", err);
             setError('Google Login Error: ' + (err.response?.data?.error || err.message));
         }
     };
@@ -58,7 +63,7 @@ export default function SignIn() {
                             onError={() => {
                                 setError('Google Login Failed');
                             }}
-                            ux_mode="redirect"
+                            ux_mode="popup"
                         />
                     </div>
 

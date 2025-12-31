@@ -93,6 +93,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         $_SESSION['user_id'] = $user['id'];
+        $_SESSION['user_email'] = $user['email'];
+        $_SESSION['user_role'] = $user['role'] ?? 'user';
         
         unset($user['password_hash']); // Don't send hash back
         
